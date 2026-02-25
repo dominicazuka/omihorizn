@@ -1,0 +1,8 @@
+
+
+# Qodo files
+.qodo
+
+# Production
+.env.production
+.env.*.prod
