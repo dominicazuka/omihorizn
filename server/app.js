@@ -8,6 +8,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
+const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 
 // Load environment variables
@@ -15,10 +16,31 @@ dotenv.config();
 
 const app = express();
 
+// Import middleware
+const { errorHandler } = require('./middleware/errorHandler');
+const { authenticateToken, optionalAuth } = require('./middleware/auth');
+const { authorize, roleVerificationEndpoint } = require('./middleware/authorization');
+
 // ============================================
 // SECURITY MIDDLEWARE
 // ============================================
 app.use(helmet()); // Set security HTTP headers
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later',
+});
+
+const paymentLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // Limit payment endpoints to 5 requests per hour
+  message: 'Too many payment attempts, please try again later',
+});
+
+app.use('/api/', limiter);
+app.use('/api/payments', paymentLimiter);
 
 // ============================================
 // CORS CONFIGURATION
@@ -69,8 +91,12 @@ app.get('/api/health', (req, res) => {
     success: true,
     message: 'Server is running',
     timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
   });
 });
+
+// Role verification endpoint (public for client role checking)
+app.get('/api/auth/verify-role', authenticateToken, roleVerificationEndpoint);
 
 // NOTE: Import route files when they are created
 // Auth routes (to be created in routes/authRoutes.js)
@@ -126,23 +152,8 @@ app.use((req, res) => {
 });
 
 // ============================================
-// GLOBAL ERROR HANDLER
+// GLOBAL ERROR HANDLER (MUST BE LAST)
 // ============================================
-app.use((err, req, res, next) => {
-  const status = err.status || err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
-
-  console.error(`[${req.id}] Error:`, {
-    status,
-    message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-  });
-
-  res.status(status).json({
-    success: false,
-    message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
-  });
-});
+app.use(errorHandler);
 
 module.exports = app;

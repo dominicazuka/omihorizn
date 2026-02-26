@@ -26,7 +26,7 @@ OmiHorizn is a **cross-platform, multi-app ecosystem** built for global mobility
 2. **OmiRoute** - Visa pathway & eligibility probability engine
 3. **OmiAdmit** - Study abroad & university applications tracking
 4. **OmiGlobe** - Country intelligence & comprehensive visa database
-5. **OmiHorizn** - Scholarship discovery & funding tracking
+5. **OmiScholar** - Scholarship discovery & funding tracking
 
 ## 🚀 Technical Architecture
 

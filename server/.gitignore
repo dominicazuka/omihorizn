@@ -55,8 +55,8 @@ Thumbs.db
 dist/
 
 # Mobile development
-android/
-ios/
+# android/
+# ios/
 
 
 # Qodo files

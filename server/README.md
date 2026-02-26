@@ -6,19 +6,24 @@ A robust backend API serving the OmiHorizn application with authentication, paym
 
 ## 🎯 Core Features
 
-- **User Authentication**: Email/password + Google OAuth + 2FA
-- **User Profiles**: Education background, preferences, documents
-- **Applications**: Track application progress, deadlines, status
-- **Document Management**: Templates, generation, upload, storage
-- **Payments**: Subscriptions, one-time purchases via Flutterwave
-- **Universities**: Database of universities and programs
-- **AI Integration**: SOP/motivation letter generation using Google Genkit
-- **File Storage**: AWS S3 integration with presigned URLs
-- **Notifications**: Email notifications and in-app alerts
-- **Admin Panel**: User management, template curation, analytics
-- **Search & Recommendations**: Advanced search with AI embeddings
-- **Careers System**: Job posting management, application tracking
-- **Blog Management**: Content management for admin & moderator (WYSIWYG support)
+- **User Authentication**: Email/password + Google OAuth + 2FA + Single device login
+- **User Profiles**: Education background, communication preferences, document library, role verification
+- **Applications**: Full lifecycle tracking, deadline monitoring, interview management, post-acceptance checklists
+- **Document Management**: Templates, AI generation (SOP, motivation letters), S3 storage, version control
+- **Payments**: Tier-based subscriptions (Free/Premium/Professional) + Flutterwave integration
+- **Universities**: 10,000+ universities & programs database with vector search + view analytics
+- **Three Intelligence Engines**: Skill-to-Visa probability, 12-month feasibility, PR pathway optimizer
+- **AI Features**: Google Genkit integration for document generation, interview prep, recommendations
+- **Professional Services**: Advisor booking, document review, interview coaching with SLA management
+- **File Storage**: AWS S3 presigned URLs, orphan cleanup, batch operations, disaster recovery
+- **Notifications**: Email (Nodemailer + Namecheap SMTP), in-app alerts, event-driven system
+- **Support System**: Tier-aware SLA (48h Free, 24h Premium, 4h Professional + WhatsApp)
+- **Admin & Moderator Panels**: User management, analytics, content moderation, data exports
+- **Search & Recommendations**: Vector-powered semantic search with AI embeddings
+- **Careers System**: Job posting management (admin), job applications tracking, view analytics
+- **Blog System**: WYSIWYG editor, moderated comments, content categories, engagement tracking
+- **Newsletter System**: Public subscription, admin scheduling, open/click tracking, analytics
+- **Data Safety**: MongoDB transactions, Redis distributed locks, idempotency keys, connection pooling, race condition prevention
 
 ## 📦 Tech Stack
 

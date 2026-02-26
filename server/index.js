@@ -5,6 +5,8 @@
 
 const app = require('./app');
 const { connectDB } = require('./config/database');
+const { initRedis } = require('./services/redis');
+const { initializeEmailTransport } = require('./utils/email');
 
 const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
@@ -16,10 +18,26 @@ async function startServer() {
     await connectDB();
     console.log('✓ Database connected');
 
+    // Initialize Redis
+    try {
+      await initRedis();
+      console.log('✓ Redis initialized');
+    } catch (error) {
+      console.warn('⚠ Redis unavailable - continuing without caching/locking');
+    }
+
+    // Initialize Email Transport
+    try {
+      initializeEmailTransport();
+      console.log('✓ Email transport initialized');
+    } catch (error) {
+      console.warn('⚠ Email service unavailable - continuing');
+    }
+
     // Start Express server
     const server = app.listen(PORT, () => {
       console.log(`✓ Server running on port ${PORT} (${NODE_ENV})`);
-      console.log(`✓ Frontend URL: ${process.env.FRONTEND_URL}`);
+      console.log(`✓ Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
     });
 
     // Graceful shutdown

@@ -26,7 +26,7 @@ const styles = StyleSheet.create({
   },
 });
 
-function NativeApp(): React.JSX.Element {
+function NativeApp(): JSX.Element {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.container}>

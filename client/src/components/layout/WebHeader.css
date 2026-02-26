@@ -1,0 +1,254 @@
+/* Web Header Styles */
+
+.web-header {
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.header-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+}
+
+/* Logo */
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: opacity 0.3s ease;
+}
+
+.header-logo:hover {
+  opacity: 0.8;
+}
+
+.logo-icon {
+  font-size: 1.5rem;
+}
+
+.logo-text {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+/* Desktop Navigation */
+.header-nav {
+  display: flex;
+  gap: 0;
+  flex: 1;
+  justify-content: center;
+}
+
+.nav-link {
+  padding: 0.75rem 1.25rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.3s ease;
+  border-bottom: 2px solid transparent;
+  font-size: 0.95rem;
+}
+
+.nav-link:hover {
+  color: #2563eb;
+}
+
+.nav-link.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+/* Header Actions */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.newsletter-signup-small {
+  display: flex;
+  gap: 0.5rem;
+  background: #f3f4f6;
+  padding: 0.5rem;
+  border-radius: 6px;
+}
+
+.newsletter-input-small {
+  background: none;
+  border: none;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  outline: none;
+  width: 150px;
+}
+
+.newsletter-input-small::placeholder {
+  color: #999;
+}
+
+.newsletter-btn-small {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+}
+
+.newsletter-btn-small:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* Auth Buttons */
+.auth-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.95rem;
+}
+
+.login-btn {
+  background: white;
+  color: #2563eb;
+  border: 2px solid #2563eb;
+}
+
+.login-btn:hover {
+  background: #f0f7ff;
+}
+
+.signup-btn {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
+}
+
+.signup-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3);
+}
+
+/* Mobile Menu Toggle */
+.mobile-menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #1a1a1a;
+  padding: 0.5rem;
+}
+
+.hamburger {
+  transition: transform 0.3s ease;
+}
+
+.hamburger.open {
+  transform: rotate(90deg);
+}
+
+.mobile-menu {
+  display: none;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 2rem;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+}
+
+.mobile-nav-link {
+  padding: 0.75rem 1rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.3s ease;
+  text-align: left;
+}
+
+.mobile-nav-link:hover,
+.mobile-nav-link.active {
+  color: #2563eb;
+  background: #f0f7ff;
+  border-color: #2563eb;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header-container {
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .logo-text {
+    font-size: 1rem;
+  }
+
+  .header-nav {
+    display: none;
+  }
+
+  .newsletter-signup-small {
+    display: none;
+  }
+
+  .auth-btn {
+    padding: 0.6rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  .mobile-menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-menu {
+    display: flex;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-container {
+    padding: 0.75rem;
+  }
+
+  .logo-icon {
+    font-size: 1.25rem;
+  }
+
+  .logo-text {
+    display: none;
+  }
+
+  .auth-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  .mobile-menu {
+    padding: 0.75rem;
+  }
+}
