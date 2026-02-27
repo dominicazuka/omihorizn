@@ -59,6 +59,15 @@ const subscriptionSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // flags to avoid duplicate reminder emails
+    reminder7Sent: {
+      type: Boolean,
+      default: false,
+    },
+    reminder1Sent: {
+      type: Boolean,
+      default: false,
+    },
 
     // Features Enabled
     featuresEnabled: [String], // Array of feature keys
@@ -80,6 +89,9 @@ const subscriptionSchema = new mongoose.Schema(
       default: 0,
     },
 
+    // Flutterwave Recurring Subscription ID (if using Flutterwave subscription API)
+    flutterwaveSubscriptionId: String,
+
     // Cancellation Reason
     cancellationReason: String,
     cancellationFeedback: String,
@@ -97,7 +109,6 @@ const subscriptionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-subscriptionSchema.index({ userId: 1 });
 subscriptionSchema.index({ status: 1 });
 subscriptionSchema.index({ renewalDate: 1 });
 

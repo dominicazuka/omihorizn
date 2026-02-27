@@ -16,10 +16,35 @@ dotenv.config();
 
 const app = express();
 
+// ============================================
+// ORIGIN ALLOWLIST HELPER
+// ============================================
+// Determines whether an Origin header is allowed by the server CORS policy.
+// Uses `FRONTEND_URL` env var when provided; allows localhost/dev origins
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+function isAllowedOrigin(origin) {
+  if (!origin) return false; // handled separately for native/mobile clients (no Origin)
+  if (origin === FRONTEND_URL) return true;
+
+  // Allow common local development hostnames
+  if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+    return true;
+  }
+
+  // Allow same-production domain and subdomains (e.g. api.omihorizn.com calls from app.omihorizn.com)
+  try {
+    const url = new URL(origin);
+    if (url.hostname.endsWith('omihorizn.com')) return true;
+  } catch (e) {
+    // ignore parse errors and fall through
+  }
+
+  return false;
+}
+
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
-const { authenticateToken, optionalAuth } = require('./middleware/auth');
-const { authorize, roleVerificationEndpoint } = require('./middleware/authorization');
+const { authenticateToken, optionalAuth, roleVerificationEndpoint } = require('./middleware/auth');
 
 // ============================================
 // SECURITY MIDDLEWARE
@@ -46,9 +71,12 @@ app.use('/api/payments', paymentLimiter);
 // CORS CONFIGURATION
 // ============================================
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
-  optionsSuccessStatus: 200,
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // mobile/native clients
+    if (isAllowedOrigin(origin)) return callback(null, true);
+    callback(new Error("Not allowed by CORS"));
+  }
 };
 app.use(cors(corsOptions));
 
@@ -98,46 +126,107 @@ app.get('/api/health', (req, res) => {
 // Role verification endpoint (public for client role checking)
 app.get('/api/auth/verify-role', authenticateToken, roleVerificationEndpoint);
 
-// NOTE: Import route files when they are created
-// Auth routes (to be created in routes/authRoutes.js)
-// app.use('/api/auth', require('./routes/authRoutes'));
+// ============================================
+// AUTHENTICATION & CORE FEATURES
+// ============================================
 
-// User routes (to be created in routes/userRoutes.js)
-// app.use('/api/user', require('./routes/userRoutes'));
+// Auth routes (includes admin login at /api/auth/admin/login)
+app.use('/api/auth', require('./routes/authRoute'));
 
-// Application routes (to be created in routes/applicationRoutes.js)
-// app.use('/api/applications', require('./routes/applicationRoutes'));
+// User routes (includes admin user management at /api/user/admin/users)
+app.use('/api/user', require('./routes/userRoute'));
 
-// Document routes (to be created in routes/documentRoutes.js)
-// app.use('/api/documents', require('./routes/documentRoutes'));
+// Application routes
+app.use('/api/applications', require('./routes/applicationRoute'));
 
-// Upload routes (to be created in routes/uploadRoutes.js)
-// app.use('/api/uploads', require('./routes/uploadRoutes'));
+// Document routes
+app.use('/api/documents', require('./routes/documentRoute'));
+
+// Upload routes
+app.use('/api/uploads', require('./routes/uploadRoute'));
+
+// ============================================
+// PAYMENTS & SUBSCRIPTIONS 
+// ============================================
+
+// Pricing routes (public - used by frontend for dynamic pricing)
+app.use('/api/pricing', require('./routes/pricingRoute'));
+
+
+// AI utility routes (embeddings, generation, vector search)
+app.use('/api/ai', require('./routes/aiRoute'));
 
 // Payment & Subscription routes
-// app.use('/api/subscription', require('./routes/subscriptionRoutes'));
-// app.use('/api/payments', require('./routes/paymentRoutes'));
+app.use('/api/subscription', require('./routes/subscriptionRoute'));
+app.use('/api/payments', require('./routes/paymentRoute'));
 
-// University routes (to be created in routes/universityRoutes.js)
-// app.use('/api/universities', require('./routes/universityRoutes'));
+// Analytics routes (admin only)
+app.use('/api/analytics', require('./routes/analyticsRoute'));
 
-// Program routes (to be created in routes/programRoutes.js)
-// app.use('/api/programs', require('./routes/programRoutes'));
+// Professional services: advisor, review, coaching, support
+app.use('/api/advisor', require('./routes/advisorRoute'));
+app.use('/api/review', require('./routes/documentReviewRoute'));
+app.use('/api/coaching', require('./routes/coachingRoute'));
+app.use('/api/support', require('./routes/supportRoute'));
 
-// Job routes (to be created in routes/jobRoutes.js)
-// app.use('/api/jobs', require('./routes/jobRoutes'));
+// ============================================
+// UNIVERSITIES, PROGRAMS & COUNTRIES
+// ============================================
 
-// Blog routes (to be created in routes/blogRoutes.js)
-// app.use('/api/blogs', require('./routes/blogRoutes'));
+// University routes (public: list, search, detail; admin: create, update, delete, bulk-import)
+app.use('/api/universities', require('./routes/universityRoute'));
 
-// Professional Services routes
-// app.use('/api/advisor', require('./routes/advisorRoutes'));
-// app.use('/api/review', require('./routes/documentReviewRoutes'));
-// app.use('/api/coaching', require('./routes/coachingRoutes'));
-// app.use('/api/support', require('./routes/supportRoutes'));
+// Program routes (public: list, search, detail; admin: create, update, delete, bulk-import)
+app.use('/api/programs', require('./routes/programRoute'));
 
-// Admin routes (to be created in routes/adminRoutes.js)
-// app.use('/api/admin', require('./routes/adminRoutes'));
+// Country routes (public: list, detail, visa guides, cost of living; admin: create, update, delete, bulk-import)
+app.use('/api/countries', require('./routes/countryRoute'));
+
+// ============================================
+// ADMIN DATA MANAGEMENT & VISA INTELLIGENCE 
+// ============================================
+
+// Generic admin data import/export
+app.use('/api/admin-data', require('./routes/adminDataRoute'));
+
+// Visa intelligence engines
+app.use('/api/visa', require('./routes/visaEngineRoute'));
+
+// Visa data endpoints
+app.use('/api/visa-data', require('./routes/visaDataRoute'));
+
+// Dependent/family visa info
+app.use('/api/visa', require('./routes/dependentVisaRoute'));
+
+// Settlement planning routes
+app.use('/api/settlement', require('./routes/settlementRoute'));
+
+// Post-acceptance & application checklist
+app.use('/api', require('./routes/postAcceptanceRoute'));
+
+// Notifications
+app.use('/api/notifications', require('./routes/notificationRoute'));
+
+// ============================================
+// PHASE 9.5: CAREERS & JOB POSTINGS (Milestone 9.5)
+// ============================================
+
+// Job posting routes (public & admin)
+app.use('/api/careers/jobs', require('./routes/jobPostingRoute'));
+
+// Job application routes (user & admin)
+app.use('/api/careers/applications', require('./routes/jobApplicationRoute'));
+
+// ============================================
+// PHASE 10: BLOG & NEWSLETTER (Milestone 10)
+// ============================================
+
+// Blog routes
+app.use('/api/blogs', require('./routes/blogRoute'));
+app.use('/api/blogs/:slug/comments', require('./routes/blogCommentRoute'));
+
+// Newsletter routes
+app.use('/api/newsletter', require('./routes/newsletterRoute'));
 
 // ============================================
 // 404 HANDLER

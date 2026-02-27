@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { usePricingPlans } from '../../../hooks/usePricingPlans';
 import { useNavigate } from 'react-router-dom';
 import './PricingPage.css';
 
-interface PricingPlan {
+// pricing data now comes from backend via hook
+interface DisplayPlan {
   id: string;
   name: string;
   price: number;
@@ -24,96 +26,26 @@ const PricingPage: React.FC = () => {
   const navigate = useNavigate();
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
 
-  const plans: PricingPlan[] = [
-    {
-      id: 'free',
-      name: 'Free',
-      price: 0,
-      billingPeriod: 'Forever',
-      description: 'Start exploring your options',
-      features: [
-        'Basic country exploration',
-        'AI eligibility assessment (1 country)',
-        'Limited profile access',
-        'Email support',
-        'Community forum access',
-        'Basic visa requirements checklist'
-      ],
-      highlighted: false,
-      cta: 'Get Started'
-    },
-    {
-      id: 'premium',
-      name: 'Premium',
-      price: billingCycle === 'monthly' ? 24.99 : 249.99,
-      billingPeriod: billingCycle === 'monthly' ? 'Month' : 'Year',
-      description: 'For serious explorers',
-      features: [
-        'All Free features',
-        'AI eligibility assessment (All countries)',
-        'Visa pathway comparisons',
-        'Document checklists for all pathways',
-        'Timeline predictions',
-        'Cost breakdowns by country',
-        'Email + chat support',
-        'Advanced search & filters',
-        'Saved countries & pathways',
-        'Monthly market insights'
-      ],
-      highlighted: true,
-      cta: 'Start Free Trial'
-    },
-    {
-      id: 'professional',
-      name: 'Professional',
-      price: billingCycle === 'monthly' ? 299.99 : 2999.99,
-      billingPeriod: billingCycle === 'monthly' ? 'Month' : 'Year',
-      description: 'For committed applicants',
-      features: [
-        'All Premium features',
-        'Dedicated advisor (30 min/month)',
-        '1:1 consultation calls',
-        'Application review service',
-        'Document preparation assistance',
-        'Interview prep sessions (5/month)',
-        'Priority support (phone + video)',
-        'Custom pathway planning',
-        'Network access to education agents',
-        'Quarterly strategy reviews',
-        'Job market intelligence',
-        'Professional visa coaching'
-      ],
-      highlighted: false,
-      cta: 'Contact Sales'
-    }
-  ];
+  // fetch pricing plans from API
+  const { plans: apiPlans, loading, error } = usePricingPlans();
 
-  const addOns: AddOn[] = [
-    {
-      id: 'extra-advisor',
-      name: 'Extra Advisor Hours',
-      description: 'Additional 1 hour consultation with immigration advisor',
-      price: 149
-    },
-    {
-      id: 'document-review',
-      name: 'Document Review Package',
-      description: 'Professional review of application documents (up to 10 docs)',
-      price: 199
-    },
-    {
-      id: 'interview-prep',
-      name: 'Interview Preparation',
-      description: '3 mock interview sessions with feedback',
-      price: 179
-    },
-    {
-      id: 'priority-support',
-      name: 'Priority Support Upgrade',
-      description: '24/7 priority support for 1 month',
-      price: 99
-    }
-  ];
+
+  const centsToEuros = (cents: number) => +(cents / 100).toFixed(2);
+
+  const plans: DisplayPlan[] = apiPlans.map((p) => ({
+    id: p.tier,
+    name: p.name,
+    price: billingCycle === 'monthly' ? centsToEuros(p.monthlyPrice) : centsToEuros(p.annualPrice),
+    billingPeriod: billingCycle === 'monthly' ? 'Month' : 'Year',
+    description: p.description,
+    features: p.features,
+    highlighted: p.highlighted,
+    cta: p.cta
+  }));
+
+  const addOns: AddOn[] = apiPlans
+    .flatMap((p) => p.addOns || [])
+    .map((a) => ({ ...a, price: centsToEuros(a.price) }));
 
   const faqItems = [
     {
@@ -149,7 +81,7 @@ const PricingPage: React.FC = () => {
     {
       question: 'How does the annual discount work?',
       answer:
-        'Annual plans save you 20% compared to monthly billing. For example, Premium annual is $199.99 (vs $239.88 monthly), saving you $40.'
+        'Annual plans save you 20% compared to monthly billing. For example, Premium annual is €199.99 (vs €239.88 monthly), saving you €40.'
     },
     {
       question: 'What support is included with each plan?',
@@ -159,6 +91,9 @@ const PricingPage: React.FC = () => {
   ];
 
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
+
+  if (loading) return <div>Loading pricing...</div>;
+  if (error) return <div className="pricing-error">{error}</div>;
 
   return (
     <div className="pricing-page">
@@ -198,7 +133,7 @@ const PricingPage: React.FC = () => {
               <p className="plan-description">{plan.description}</p>
 
               <div className="price">
-                <span className="currency">$</span>
+                <span className="currency">€</span>
                 <span className="amount">{plan.price.toFixed(2)}</span>
                 <span className="period">/{plan.billingPeriod}</span>
               </div>
@@ -342,7 +277,7 @@ const PricingPage: React.FC = () => {
               <h3>{addon.name}</h3>
               <p>{addon.description}</p>
               <div className="addon-price">
-                <span className="currency">$</span>
+                <span className="currency">€</span>
                 <span className="amount">{addon.price}</span>
               </div>
               <button className="addon-btn">Add to Plan</button>

@@ -2,8 +2,681 @@
 
 > Comprehensive roadmap for Expo + React Native + Web frontend development
 
-## ⚠️ Important Note on Documentation
-**This milestone document consolidates all feature definitions. Do NOT create additional summary documents or .md files.** All future feature additions and changes must be integrated directly into this file and the corresponding server MILESTONES.md. This ensures single-source-of-truth and reduces documentation sprawl.
+## ⚠️ Important Development Standards
+
+### MVC-like Architecture for Frontend
+**All client implementations SHOULD follow logical separation:**
+```
+Route/Page → Component → Custom Hook/Context → Service → API
+```
+
+### 📂 Directory Organization (Web vs Mobile)
+The `client` folder is intentionally split into two top‑level directories to keep platform‑specific code isolated:
+
+- `/client/app/` – Contains **mobile/native (React Native/Expo)** sources, including navigation, screens, and any platform-specific hooks or contexts. Files here typically import from `react-native`, `expo`, or other native libraries. Use this directory for code that is consumed by `index.native.tsx` or other mobile entrypoints.
+
+- `/client/src/` – Contains **web-specific** code (React DOM). This includes pages, layouts, web-only components, and styles. This code is built by the webpack configuration defined in the root `client/webpack.config.js` and served by `<script>` tags in `index.html`.
+
+- **Shared Modules:** Common utilities, types, hooks, and services that work across both platforms should live in a shared location such as `/client/src/shared/` or `/client/common/`. Modules placed here must avoid importing platform APIs directly; use conditional logic (`if (Platform.OS === 'web')`) or separate from components when necessary.
+
+- **Enforcement:** When adding new files, consider the intended target: if it uses `<View>`, `react-native` components, or mobile navigation, put it in `/app`; otherwise default to `/src`. This separation makes builds faster and prevents webpack from bundling native modules into the web bundle.
+
+> Example structure:
+> ```
+> client/
+> ├─ app/                # mobile-only
+> │   ├─ navigation/
+> │   ├─ screens/
+> │   └─ hooks/          # mobile-specific hooks
+> ├─ src/                # web-only
+> │   ├─ pages/
+> │   ├─ components/web/
+> │   └─ styles/
+> └─ common/             # shared code (services, types, utils)
+> ```
+
+**This guideline ensures clarity when working across platforms and reduces accidental cross-imports.**
+
+
+**Component Responsibilities:**
+- Render UI elements
+- Manage local UI state (e.g., form inputs, modals)
+- Call custom hooks for data fetching and state management
+- Use services for API communication
+- Implement client-side validation for ALL input fields
+
+**Custom Hook Responsibilities:**
+- Fetch and manage data from services
+- Handle loading states and errors
+- Provide data to components via hooks
+- Example: `useAuth()`, `useFetch()`, `useForm()`
+
+**Service Responsibilities:**
+- Handle API communication via configured axios instance
+- Process responses and errors
+- Never implement business logic that belongs to the server
+
+**Type Safety:**
+- All data must have TypeScript interfaces
+- Store types in `/src/types/` folder
+- Export all types from `/src/types/index.ts`
+
+### Important Notes
+- **This milestone document consolidates all feature definitions. Do NOT create additional summary documents or .md files.** 
+  - All future feature additions and changes must be integrated directly into this file and the corresponding server MILESTONES.md. 
+  - This ensures single-source-of-truth and reduces documentation sprawl.
+
+### Axios Configuration (Web vs Mobile)
+- The project maintains **two distinct Axios configurations**:
+  - **Web**: `client/src/config/web.config.ts` is used by all `.web.tsx` pages and hooks. It relies on `localStorage` for tokens and sets base URL based on `window.location`. This file is referenced in hooks such as `usePricingPlans` and any web-specific services.
+  - **Mobile**: `client/src/config/api.config.ts` is tailored for React Native/Expo. It uses `AsyncStorage` and attaches an `x-api-key` header so the server can identify requests coming from the mobile app. Use this instance in native components and shared services executed on mobile.
+  - When adding new API calls, import the appropriate Axios instance (`web.config` for web, `api.config` for mobile) to keep behaviours consistent across platforms.
+
+This separation ensures tokens and environment detection behave correctly on each platform and matches the documentation in earlier client milestones.
+
+### � Server API Routes Reference
+
+**Authentication Endpoints**:
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/verify-email` - Verify email with token
+- `POST /api/auth/login` - Login with email/password
+- `POST /api/auth/logout` - Logout (invalidate refresh token)
+- `POST /api/auth/forgot-password` - Request password reset
+- `POST /api/auth/reset-password/:token` - Reset password with token
+- `POST /api/auth/refresh-token` - Get new access token
+- `POST /api/auth/google/callback` - Google OAuth callback
+- `POST /api/auth/2fa/send-otp` - Request 2FA OTP code
+- `POST /api/auth/2fa/verify-otp` - Verify 2FA OTP
+- `POST /api/auth/update-activity` - Update user activity timestamp
+- `GET /api/auth/verify-role` - Verify user role (client-side token validation)
+- `POST /api/auth/admin/login` - Admin login with OTP
+- `POST /api/auth/admin/logout` - Admin logout
+
+**User Profile & Preferences**:
+- `GET /api/user/profile` - Get user profile
+- `PUT /api/user/profile` - Update user profile
+- `POST /api/user/change-password` - Change password
+- `POST /api/user/education` - Add education
+- `GET /api/user/education` - Get all education records
+- `PUT /api/user/education/:id` - Update education
+- `DELETE /api/user/education/:id` - Delete education
+- `PUT /api/user/preferences/language` - Update language preference
+- `PUT /api/user/preferences/notifications` - Update notification preferences
+- `PUT /api/user/preferences/privacy` - Update privacy settings
+- `PUT /api/user/preferences/communication` - Update communication preferences
+- `GET /api/user/preferences/communication` - Get communication preferences
+- `DELETE /api/user/account` - Delete account (soft delete, 30-day recovery)
+
+**Admin User Management** (Milestone 8.2 - Requires admin role):
+- `GET /api/user/admin/users` - List users (paginated, searchable)
+- `GET /api/user/admin/users/:id` - Get user detail
+- `POST /api/user/admin/users/:id/suspend` - Suspend user
+- `POST /api/user/admin/users/:id/activate` - Activate user
+- `DELETE /api/user/admin/users/:id` - Delete user (soft delete)
+- `POST /api/user/admin/users/:id/reset-password` - Reset password and email temp password
+- `GET /api/user/admin/users/:id/documents` - View user documents
+- `POST /api/user/admin/bulk-action` - Bulk action (suspend/activate/delete users)
+- `POST /api/user/admin/users/:id/approve` - Approve user registration
+- `POST /api/user/admin/users/:id/reject` - Reject user registration
+
+**Analytics** (Milestone 8.3 - Requires admin role):
+- `GET /api/analytics/dashboard` - Dashboard overview
+- `GET /api/analytics/payments` - Payment analytics
+- `GET /api/analytics/subscriptions` - Subscription analytics
+- `GET /api/analytics/users` - User analytics
+- `GET /api/analytics/professional-services` - Services analytics
+- `GET /api/analytics/support` - Support ticket analytics
+
+**Applications & Documents**:
+- `GET /api/applications` - List applications
+- `POST /api/applications` - Create application
+- `GET /api/applications/:id` - Get application detail
+- `PUT /api/applications/:id` - Update application
+- `DELETE /api/applications/:id` - Delete application
+- `GET /api/documents` - List documents
+- `POST /api/documents` - Upload document (store metadata after S3 upload)
+- `GET /api/documents/:id` - Get document detail
+- `DELETE /api/documents/:id` - Delete document
+
+### Careers (Jobs & Applications)
+
+- `POST /api/careers/jobs` - Create job posting (admin)
+  - Payload example (admin create):
+    - `title` (string, required)
+    - `description` (string, required)
+    - `companyName` (string, required)
+    - `companyLogo` (string, optional - S3 URL)
+    - `country` (string, required)
+    - `city` (string, required)
+    - `category` (string, one of: tech, finance, healthcare, education, marketing, sales, legal, other)
+    - `experienceLevel` (string, one of: junior, mid, senior, executive)
+    - `employmentType` (string, full-time|part-time|contract|freelance|temporary)
+    - `salaryMin` (number, optional)
+    - `salaryMax` (number, optional)
+    - `currency` (string, optional)
+    - `skillsRequired` (array[string], optional)
+    - `requiredDocuments` (object, e.g. `{ cv: true, coverLetter: false }`)
+    - `applicationDeadline` (ISO date string)
+    - `status` (string, active|closed|archived|draft)
+
+- `GET /api/careers/jobs` - Public list of active jobs (filterable & paginated)
+  - Query params: `page`, `limit`, `q` (search), `category`, `country`, `city`, `experienceLevel`, `sort`
+
+- `GET /api/careers/jobs/:id` - Public job detail (increments view count on view)
+- `POST /api/careers/jobs/:id/view` - Track job view (public)
+- `GET /api/careers/jobs/search` - Search jobs by `q` (title/keywords)
+- `GET /api/careers/jobs/filter` - Filter by `category` and `location`
+
+### Job Applications
+
+- `POST /api/careers/applications` - Apply for a job (authenticated)
+  - Payload example (apply):
+    - `jobPostingId` (string ObjectId, required)
+    - `cvUrl` (string, required - S3 URL)
+    - `coverLetterUrl` (string, optional - S3 URL)
+    - `portfolioUrl` (string, optional)
+    - `certificationsUrl` (array[string], optional)
+
+- `GET /api/careers/applications` - List user's applications (authenticated)
+  - Query params: `page`, `limit`, `status`, `sort`
+- `GET /api/careers/applications/:id` - Get application detail (owner only)
+- `DELETE /api/careers/applications/:id` - Withdraw application (owner only)
+
+- `GET /api/admin/careers/applications` - Admin: list all applications (paginated, searchable)
+- `GET /api/admin/careers/applications/:id` - Admin: application detail
+- `PUT /api/admin/careers/applications/:id` - Admin: update status/notes
+- `DELETE /api/admin/careers/applications/:id` - Admin: delete application
+
+Notes: Job and application payload fields map to server models (see models/JobPosting.js and models/JobApplication.js). Use S3 presigned URLs for all file fields (`cvUrl`, `companyLogo`, etc.).
+
+### Notifications (In-app)
+
+- `GET /api/notifications` - List user's notifications (authenticated)
+  - Query params: `page`, `limit`, `isRead`, `isArchived`, `priority`, `type`
+- `GET /api/notifications/unread/count` - Get unread count (badge)
+- `PUT /api/notifications/read-all` - Mark all as read
+- `PUT /api/notifications/:id/read` - Mark single notification as read
+- `PUT /api/notifications/:id/archive` - Archive notification
+- `DELETE /api/notifications/:id` - Delete notification
+- `DELETE /api/notifications/archived/all` - Delete all archived notifications
+
+Notification payload (internal/system):
+- `type` (string enum: application_status, document_review, payment_confirmation, subscription_renewal, advisor_message, coaching_session, support_response, visa_update, recommendation_request, interview_update, system_alert, feature_announcement)
+- `title` (string)
+- `message` (string)
+- `description` (string, optional)
+- `relatedModel` (string enum: Application, Document, Payment, Subscription, Interview, null)
+- `relatedId` (ObjectId, optional)
+- `actionUrl` (string, optional) — deep link or route
+- `priority` (low|medium|high)
+
+Client notes:
+- Use `GET /api/notifications/unread/count` to render badge counters in app header/navbars.
+- The client should surface notification preferences under user settings (`PUT /api/user/preferences/notifications`) to control channels (in-app, email, push).
+
+
+**File Uploads** (S3 Presigned URLs):
+- `POST /api/uploads/presign` - Request single presigned URL
+- `POST /api/uploads/presign-batch` - Request multiple presigned URLs
+- `DELETE /api/uploads/:key` - Delete file from S3
+- `GET /api/uploads/download/:key` - Get presigned download URL
+
+**Payments & Subscriptions**:
+- `GET /api/pricing` - Get pricing plans
+- `POST /api/payments/initiate` - Initiate payment (Flutterwave)
+- `POST /api/payments/verify` - Verify payment
+- `GET /api/subscription` - Get current subscription
+- `POST /api/subscription` - Create subscription
+- `PUT /api/subscription/:id` - Update subscription
+
+**Universities, Programs & Countries**:
+- `GET /api/universities` - List universities (public)
+- `POST /api/universities` - Create university (admin)
+- `GET /api/universities/:id` - Get university detail
+- `GET /api/programs` - List programs (public)
+- `POST /api/programs` - Create program (admin)
+- `GET /api/programs/:id` - Get program detail
+- `GET /api/countries` - List countries (public)
+- `POST /api/countries` - Create country (admin)
+- `GET /api/countries/:id` - Get country detail
+
+**Professional Services**:
+- `POST /api/advisor/request` - Request advisor session
+- `GET /api/advisor/sessions` - Get advisor sessions
+- `POST /api/review/submit` - Submit document for review
+- `GET /api/review/status/:id` - Get review status
+- `POST /api/coaching/book` - Book coaching session
+- `GET /api/coaching/sessions` - Get coaching sessions
+- `POST /api/support/ticket` - Create support ticket
+- `GET /api/support/tickets` - Get support tickets
+
+**Visa Intelligence** (Milestone 7):
+- `POST /api/visa/skill-match` - Match skills to visa types
+- `POST /api/visa/feasibility` - Check visa feasibility
+- `POST /api/visa/pr-pathway` - Get PR pathway info
+- `GET /api/visa-data/requirements/:country` - Get visa requirements
+- `GET /api/visa-data/pathways/:country` - Get visa pathways
+- `GET /api/visa/dependent/:country/:visaType` - Get dependent visa info
+- `GET /api/settlement/:country` - Get settlement resources
+
+**Blog & Comments (Phase 10)**:
+- `POST /api/blogs` - Create blog post (admin/moderator)
+- `GET /api/blogs` - List published blogs (public, paginated, filterable)
+- `GET /api/blogs/:slug` - Get blog post detail (public)
+- `PUT /api/blogs/:id` - Update blog post (author/admin)
+- `DELETE /api/blogs/:id` - Delete blog post (admin)
+- `POST /api/blogs/:slug/view` - Increment view count (public)
+- `GET /api/blogs/category/:category` - Filter by category (public)
+- `GET /api/blogs/tag/:tag` - Filter by tag (public)
+- `GET /api/blogs/search?q=:query` - Search blogs (public)
+- `POST /api/blogs/:blogId/comments` - Create comment (authenticated)
+- `GET /api/blogs/:blogId/comments` - List approved comments (public)
+- `PUT /api/blogs/:blogId/comments/:commentId` - Update comment (author)
+- `DELETE /api/blogs/:blogId/comments/:commentId` - Delete comment (author/admin)
+- `POST /api/blogs/:blogId/comments/:commentId/like` - Like comment (authenticated)
+- `GET /api/admin/blogs/:blogId/comments` - List all comments (admin)
+- `PUT /api/admin/blogs/:blogId/comments/:commentId/moderate` - Approve/reject (admin)
+- `DELETE /api/admin/blogs/:blogId/comments/:commentId/hard-delete` - Hard delete (admin)
+
+**Newsletter (Phase 10.5)**:
+- `POST /api/newsletter/subscribe` - Subscribe to newsletter (public)
+- `POST /api/newsletter/confirm/:token` - Confirm subscription (public)
+- `POST /api/newsletter/unsubscribe/:token` - Unsubscribe (public)
+- `PUT /api/newsletter/preferences` - Update preferences (authenticated)
+- `GET /api/newsletter/preferences` - Get preferences (authenticated)
+- `POST /api/admin/newsletter/draft` - Create draft (admin)
+- `GET /api/admin/newsletter/drafts` - List drafts (admin)
+- `PUT /api/admin/newsletter/:id` - Update draft (admin)
+- `DELETE /api/admin/newsletter/:id` - Delete draft (admin)
+- `POST /api/admin/newsletter/:id/preview` - Preview (admin)
+- `POST /api/admin/newsletter/:id/send-test` - Send test (admin)
+- `POST /api/admin/newsletter/:id/schedule` - Schedule send (admin)
+- `POST /api/admin/newsletter/:id/send-now` - Send now (admin)
+- `GET /api/admin/newsletter/:id/stats` - Campaign stats (admin)
+- `GET /api/admin/newsletter/subscribers` - List subscribers (admin)
+- `GET /api/admin/newsletter/subscribers/:id` - Subscriber detail (admin)
+- `DELETE /api/admin/newsletter/subscribers/:id` - Remove subscriber (admin)
+- `PUT /api/admin/newsletter/subscribers/:id/status` - Update status (admin)
+- `GET /api/admin/newsletter/analytics` - Dashboard (admin)
+- `GET /api/admin/newsletter/:id/engagement` - Campaign engagement (admin)
+
+### Endpoint Request Payloads — Phase 10 & 10.5
+
+**Blog Endpoints**:
+
+- **POST /api/blogs** (Admin/Moderator)
+  - `title` (string, required, 3-200 chars)
+  - `content` (string, required, HTML from WYSIWYG)
+  - `category` (string, optional: visa-guides|study-abroad|immigration-news|career-tips|settlement|other)
+  - `tags` (array[string], optional)
+  - `featuredImage` (string, optional - S3 URL)
+  - `metaDescription` (string, optional, max 160 chars)
+  - `metaKeywords` (array[string], optional)
+  - `status` (string, optional: draft|published|archived)
+
+- **GET /api/blogs** (Public)
+  - Query params: `page`, `pageSize`, `status`, `category`, `tag`, `search`, `sort`
+
+- **PUT /api/blogs/:id** (Author/Admin)
+  - Same fields as POST (all optional)
+
+**Blog Comment Endpoints**:
+
+- **POST /api/blogs/:blogId/comments** (Authenticated)
+  - `content` (string, required, 1-5000 chars)
+  - `parentCommentId` (string, optional - for nested replies)
+
+- **GET /api/blogs/:blogId/comments** (Public)
+  - Query params: `page`, `pageSize`, `sort` (newest|oldest|most-liked)
+
+- **PUT /api/blogs/:blogId/comments/:commentId** (Author)
+  - `content` (string, required)
+
+- **POST /api/blogs/:blogId/comments/:commentId/like** (Authenticated)
+  - No payload required (toggles like/unlike)
+
+- **PUT /api/admin/blogs/:blogId/comments/:commentId/moderate** (Admin)
+  - `status` (string, required: approved|rejected|spam)
+  - `adminNotes` (string, optional)
+
+**Newsletter Endpoints**:
+
+- **POST /api/newsletter/subscribe** (Public)
+  - `email` (string, required)
+  - `frequency` (string, optional: daily|weekly|monthly, default: weekly)
+  - `categories` (array[string], optional)
+
+- **PUT /api/newsletter/preferences** (Authenticated)
+  - `frequency` (string, optional: daily|weekly|monthly)
+  - `categories` (array[string], optional)
+
+- **POST /api/admin/newsletter/draft** (Admin)
+  - `title` (string, required)
+  - `subject` (string, required)
+  - `content` (string, required, HTML)
+  - `recipientFilter` (string, optional: all|active|category-specific, default: all)
+  - `selectedCategories` (array[string], optional)
+
+- **PUT /api/admin/newsletter/:id** (Admin)
+  - Same fields as POST (all optional)
+
+- **POST /api/admin/newsletter/:id/send-test** (Admin)
+  - `testEmail` (string, required)
+
+- **POST /api/admin/newsletter/:id/schedule** (Admin)
+  - `scheduledDate` (ISO8601 datetime, required)
+  - `recipientFilter` (object, required):
+    - `type` (string: all|active|by-preference|by-category)
+    - `frequency` (optional: daily|weekly|monthly)
+    - `categories` (optional: array[string])
+
+- **POST /api/admin/newsletter/:id/send-now** (Admin)
+  - `recipientFilter` (object, required - same as schedule)
+
+- **PUT /api/admin/newsletter/subscribers/:id/status** (Admin)
+  - `status` (string, required: pending|active|unsubscribed|bounced)
+
+### Axios Configuration (Web vs Mobile)
+
+
+**CRITICAL PATTERN**: All file uploads use **AWS S3 presigned URLs** for direct client-to-S3 upload. **Server NEVER handles file upload directly.**
+
+**Architecture Overview**:
+```
+Client Form               Server API              AWS S3
+  ↓                         ↓                       ↓
+User selects file  →  Request presigned URL  →  Return signed URL (15 min expiry)
+                ↓
+         Upload directly via PUT request with presigned URL
+                ↓
+         Store S3 URL in database via POST /api/documents endpoint
+```
+
+**Key Benefits**:
+- ✅ Offloads file storage from server to S3
+- ✅ Reduces server bandwidth and memory usage
+- ✅ Faster uploads (direct to S3)
+- ✅ Secure presigned URLs prevent unauthorized access
+- ✅ Automatic cleanup of old uploads via S3 lifecycle policies
+
+**Server-Side Implementation** (Already Complete):
+- `POST /api/uploads/presign` - Request single presigned URL
+- `POST /api/uploads/presign-batch` - Request multiple presigned URLs
+- `DELETE /api/uploads/:key` - Delete file from S3
+- `GET /api/uploads/download/:key` - Get presigned download URL
+- `POST /api/documents` - Store document metadata after upload
+
+**Client-Side Implementation** (See Milestone 2.3):
+- **FileUpload Component** (`src/components/forms/FileUpload.web/native.tsx`):
+  - Generic file upload with progress tracking
+  - Validates file type, size, and count client-side
+  - Used for documents (PDF, DOC, etc.)
+- **ImageUpload Component** (`src/components/forms/ImageUpload.web/native.tsx`):
+  - Specialized for images with drag-drop and reordering
+  - Preview thumbnails and multi-select
+  - Used for profile pictures and gallery uploads
+- **Upload Service** (`src/services/upload.ts`):
+  - `requestPresignedUrl(fileName, fileSize, fileType)` - Get single URL
+  - `requestPresignedUrlBatch(files)` - Get multiple URLs
+  - `uploadToS3(presignedUrl, file, onProgress)` - Direct S3 upload
+  - Handle retries and network errors
+
+**Upload Flow** (All Modules Must Follow):
+1. User selects file(s) via FileUpload/ImageUpload component
+2. Client validates file (type, size, extension, count)
+3. Request presigned URL(s) from server: `GET /api/uploads/presign?fileName=...&fileSize=...&fileType=...`
+4. Server returns S3 presigned URL with 15-minute expiration
+5. Client uploads directly to S3 using presigned URL (PUT request)
+6. Client displays progress bar during upload
+7. **After successful S3 upload**, client calls `POST /api/documents` with metadata:
+   - `{ fileName, fileSize, mimeType, s3Url, applicationId, documentType }`
+8. Server stores metadata in database (S3 file is already accessible)
+9. UI confirms upload and displays file in appropriate list/section
+
+**Error Handling**:
+- Invalid file type → Show toast: "Only PDF and images are supported"
+- File too large → Show toast: "File exceeds 10MB limit"
+- S3 upload failed → Retry with exponential backoff, then show error
+- Metadata storage failed → Show warning but keep S3 file (manual cleanup available)
+- Presigned URL expired → Request new URL and retry
+
+**Types** (See `src/types/upload.ts`):
+```typescript
+interface UploadedFile {
+  url: string;       // S3 URL from presigned POST
+  name: string;      // Original filename
+  size: number;      // File size in bytes
+  mimeType: string;  // MIME type (application/pdf, image/jpeg, etc.)
+}
+
+interface FileUploadProps {
+  multiple?: boolean;
+  accept?: string;        // "application/pdf,image/*,.docx"
+  maxSize?: number;       // bytes (e.g., 10 * 1024 * 1024)
+  maxFiles?: number;      // for multiple uploads
+  onChange: (files: UploadedFile[]) => void;
+  buttonLabel?: string;
+}
+
+interface ImageUploadProps {
+  images: File[];
+  setImages: React.Dispatch<React.SetStateAction<File[]>>;
+  maxFiles?: number;
+  progressMap?: { [key: string]: number };  // Upload progress per file
+  existingImages?: { url: string; isPrimary?: boolean }[];
+  onChange?: (images: { url: string; isPrimary?: boolean }[]) => void;
+}
+```
+
+**Implementation Checklist** (For Every Feature Using Uploads):
+- [ ] Import FileUpload or ImageUpload component
+- [ ] Set appropriate `accept` MIME types
+- [ ] Set `maxSize` for client-side validation
+- [ ] Implement `onChange` handler to capture uploaded files
+- [ ] Before form submission, check that all required files are uploaded
+- [ ] After form submission, wait for metadata storage (`POST /api/documents`)
+- [ ] Display success toast only after both S3 upload AND metadata storage succeed
+- [ ] Test on both web and native platforms with different file sizes
+- [ ] Test error cases: invalid type, oversized file, network interruption
+
+### 🌍 Geographic Selector Component
+- Use the `country-state-city` library (version ^3.2.1) for all places where the user picks country, state/province and city.
+- **Web implementation**: build a `CountryStateCitySelect` component wrapping HTML `<select>` controls or your UI kit's dropdowns. Ensure cascading behavior (country→state→city).
+- **Mobile implementation**: build a `CountryStateCityPicker` (in `src/components/forms/`) using `react-native-picker` or `react-native-paper` components. Avoid plain text inputs; offer searchable modal/picker lists.
+- Export types in `src/types/location.ts`:
+  ```ts
+  export interface Country { name: string; isoCode: string; }
+  export interface State { name: string; isoCode: string; countryCode: string; }
+  export interface City { name: string; countryCode: string; stateCode: string; }
+  ```
+- Use the component in all forms requiring address info (profile, applications, shipping, etc.).
+- Validate all three fields when required and show error messages if missing.
+
+### 🔌 API Configuration & Axios Setup
+
+**Axios Instance Configuration** (`src/config/api.config.ts` or reference existing `src/config/index.ts`):
+
+```typescript
+import axios from 'axios';
+import TokenService from '../libs/token';
+
+// Auto-detect environment
+const isLocalHost = Boolean(
+  typeof window !== 'undefined' && (
+    window.location.hostname === "localhost" || 
+    window.location.hostname === "[::1]" || 
+    window.location.hostname.match(/^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/)
+  )
+);
+
+export const APP_URL = isLocalHost 
+  ? 'http://localhost:3000' 
+  : 'https://omihorizn.com';
+
+// Create axios instance with base URL
+const Axios = axios.create({
+  baseURL: `${SERVER_URL}/api`,
+  withCredentials: true,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Request interceptor: Add JWT token to all requests
+Axios.interceptors.request.use(
+  (config) => {
+    const token = TokenService.getLocalAccessToken();
+    if (token) {
+      config.headers["authorization"] = `Bearer ${token}`;
+    }
+    
+    // Set Content-Type based on data type
+    if (config.data instanceof FormData) {
+      config.headers["Content-Type"] = "multipart/form-data";
+    } else {
+      config.headers["Content-Type"] = "application/json";
+    }
+    
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor: Handle token refresh and 401 errors
+Axios.interceptors.response.use(
+  (res) => res,
+  async (err) => {
+    const originalConfig = err.config;
+
+    // Refresh token on 401 (except for login endpoint)
+    if (originalConfig.url !== "/auth/login" && err.response?.status === 401 && !originalConfig._retry) {
+      originalConfig._retry = true;
+
+      try {
+        const rs = await Axios.post("/auth/refresh/token", {
+          refreshToken: TokenService.getLocalRefreshToken(),
+        });
+
+        // Update tokens in storage
+        TokenService.updateLocalSession(rs.data);
+
+        // Retry original request with new token
+        originalConfig.headers["authorization"] = `Bearer ${rs.data.accessToken}`;
+        return Axios(originalConfig);
+      } catch (_error) {
+        return Promise.reject(_error);
+      }
+    }
+
+    return Promise.reject(err);
+  }
+);
+
+export default Axios;
+```
+
+**Key Configuration Points**:
+- ✅ Auto-detects localhost vs production API
+- ✅ Automatically adds JWT token to all requests
+- ✅ Handles FormData for file uploads (no Content-Type override needed)
+- ✅ Automatically refreshes expired tokens
+- ✅ Retries failed auth requests after token refresh
+- ✅ Works across web and native platforms
+
+Note: Mobile (React Native / Expo) uses `src/config/api.config.ts` (AsyncStorage-backed) so the same Axios setup is shared across platforms.
+
+**Upload Service Integration** (`src/services/upload.ts`):
+```typescript
+import Axios from '../config/api.config';
+
+export const uploadService = {
+  async requestPresignedUrl(fileName: string, fileSize: number, fileType: string) {
+    const response = await Axios.get('/uploads/presign', {
+      params: { fileName, fileSize, fileType }
+    });
+    return response.data.data.url;
+  },
+
+  async requestPresignedUrlBatch(files: Array<{name: string; size: number; type: string}>) {
+    const response = await Axios.post('/uploads/presign-batch', {
+      files: files.map(f => ({ 
+        fileName: f.name, 
+        fileSize: f.size, 
+        fileType: f.type 
+      }))
+    });
+    return response.data.data;  // Array of { url, expiresIn, fileName }
+  },
+
+  async uploadToS3(presignedUrl: string, file: File, onProgress?: (progress: number) => void) {
+    return axios.put(presignedUrl, file, {
+      headers: { 'Content-Type': file.type },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(progress);
+        }
+      }
+    });
+  },
+
+  async deleteFile(s3Key: string) {
+    return Axios.delete(`/uploads/${s3Key}`);
+  },
+
+  async getDownloadUrl(s3Key: string, expiresIn: number = 3600) {
+    const response = await Axios.get(`/uploads/download/${s3Key}`, {
+      params: { expiresIn }
+    });
+    return response.data.data.url;
+  }
+};
+```
+
+**Document Service Integration** (`src/services/document.ts`):
+```typescript
+import Axios from '../config/api.config';
+
+export const documentService = {
+  async createDocument(payload: {
+    applicationId: string;
+    documentType: string;
+    title: string;
+    fileUrl: string;      // S3 URL from upload
+    fileName: string;
+    fileSize: number;
+    mimeType: string;
+  }) {
+    const response = await Axios.post('/documents', payload);
+    return response.data.data;
+  },
+
+  async updateDocument(documentId: string, updates: Partial<Document>) {
+    const response = await Axios.put(`/documents/${documentId}`, updates);
+    return response.data.data;
+  },
+
+  async deleteDocument(documentId: string) {
+    return Axios.delete(`/documents/${documentId}`);
+  },
+
+  async getUserDocuments(filters?: { applicationId?: string; documentType?: string }) {
+    const response = await Axios.get('/documents', { params: filters });
+    return response.data.data;
+  },
+
+  async getApplicationDocuments(applicationId: string) {
+    const response = await Axios.get(`/documents/application/${applicationId}`);
+    return response.data.data;
+  }
+};
+```
+
+**Important Notes**:
+- S3 presigned upload uses direct `axios.put()` (not the Axios instance with auth headers)
+- Presigned URLs already include authentication via signed parameters
+- Adding JWT token to S3 PUT would cause signature validation to fail
+- All file operations include proper error handling and toast notifications
 
 ### Platform Requirements
 - **Frontend Framework**: Expo with Dev Client (development) + Bare React Native (production)
@@ -1094,6 +1767,9 @@ src/views/backend/moderator/
   - [ ] Handle Google token exchange
 - [ ] Create auth service (API calls)
 - [ ] Setup JWT token management (secure storage - AsyncStorage on native, localStorage on web)
+- [ ] Role verification:\n  - [ ] After login and periodically (on refresh) call `/auth/verify-role`
+  - [ ] Store returned { role, permissions, lastVerifiedAt } in encrypted storage
+  - [ ] Use this data to guard admin/moderator routes and update UI
 - [ ] Implement token refresh mechanism
 - [ ] Create auth context/store
 - [ ] Add logout functionality
@@ -1196,20 +1872,169 @@ src/views/backend/moderator/
 - [ ] Create template download functionality
 - [ ] Add template tagging/filtering
 - [ ] Create documents list screen
-- [ ] Implement document upload:
-  - [ ] Request S3 presigned URL
-  - [ ] Upload to S3
-  - [ ] Store document metadata
+- [ ] **CRITICAL - Implement Presigned URL Upload Pattern** (S3 Direct Upload):
+  - [ ] **Create reusable FileUpload component** (web + native):
+    - [ ] **Web Component** (`src/components/forms/FileUpload.web.tsx`):
+      - [ ] Accept file input with configurable MIME types
+      - [ ] Validate file size client-side before upload
+      - [ ] Display accepted file types and size limits
+      - [ ] Show upload progress with progress bar
+      - [ ] List uploaded files with remove option
+      - [ ] Support single and multiple file uploads
+      - [ ] Clear UI with file icon, name, size display
+      - [ ] Error handling with user-friendly messages
+    - [ ] **Native Component** (`src/components/forms/FileUpload.native.tsx`):
+      - [ ] Use `react-native-document-picker` for file selection
+      - [ ] Mirror web UI but optimized for native (touch-friendly)
+      - [ ] Same validation, progress, and error handling
+      - [ ] Support both single/multiple uploads
+  - [ ] **Create reusable ImageUpload component** (web + native):
+    - [ ] **Web Component** (`src/components/forms/ImageUpload.web.tsx`):
+      - [ ] Drag-and-drop zone (drag files to upload)
+      - [ ] Click to browse images
+      - [ ] Preview thumbnails in grid layout
+      - [ ] Drag-to-reorder images (for multi-image sequences)
+      - [ ] Remove images individually
+      - [ ] Show upload progress per image
+      - [ ] Support single and multiple image uploads (configurable maxFiles)
+      - [ ] Auto-crop/resize preview display
+      - [ ] Accept images only (image/* MIME type)
+    - [ ] **Native Component** (`src/components/forms/ImageUpload.native.tsx`):
+      - [ ] Use `react-native-image-picker` + `@react-native-camera-roll`
+      - [ ] Camera + gallery selection
+      - [ ] Image preview with reordering
+      - [ ] Same progress and validation
+  - [ ] **Upload Service Layer** (`src/services/upload.ts`):
+    - [ ] `requestPresignedUrl(fileName, fileSize, fileType)` - GET `/api/uploads/presign`
+    - [ ] `requestPresignedUrlBatch(files)` - POST `/api/uploads/presign-batch`
+    - [ ] `uploadToS3(presignedUrl, file, onProgress)` - PUT request to presigned URL
+    - [ ] `deleteFile(s3Key)` - DELETE `/api/uploads/:key`
+    - [ ] `getDownloadUrl(s3Key)` - GET `/api/uploads/download/:key`
+    - [ ] Handle network errors and retry logic
+  - [ ] **Upload Flow Implementation**:
+    1. User selects file(s) from FileUpload/ImageUpload component
+    2. Client validates file (type, size, extension)
+    3. If valid, request presigned URL(s) from server
+    4. Server returns S3 presigned URL(s) with 15-minute expiration
+    5. Client uploads file directly to S3 using presigned URL (PUT request)
+    6. Client displays progress bar during upload
+    7. After successful S3 upload, client calls POST `/api/documents` endpoint with file metadata (fileName, fileSize, mimeType, s3Url)
+    8. Server stores document metadata in database
+    9. UI confirms upload and displays file in document list
+  - [ ] **Error Handling**:
+    - [ ] Handle presigned URL request failures
+    - [ ] Handle S3 upload failures with user-friendly messages
+    - [ ] Handle metadata submission failures
+    - [ ] Implement exponential backoff for retries
+    - [ ] Show toast notifications for errors
+  - [ ] **Progress Tracking**:
+    - [ ] Display per-file progress during S3 upload
+    - [ ] Update progress bar in real-time
+    - [ ] Handle multi-file uploads with individual progress
+    - [ ] Show overall progress when uploading batches
 - [ ] Create document viewer/preview
-- [ ] Add document delete functionality
+- [ ] Add document delete functionality:
+  - [ ] Client-side delete calls DELETE `/api/uploads/:key`
+  - [ ] Server deletes from S3 and database
+  - [ ] Show confirmation before deletion
+  - [ ] Update UI after successful deletion
 - [ ] Implement document organization by application
+  - [ ] Link documents to specific application
+  - [ ] Show document status in application checklist
+  - [ ] Filter documents by application
 - [ ] Add document version history
+  - [ ] Track multiple versions of same document
+  - [ ] Show upload date/time for each version
+  - [ ] Allow download of previous versions
+  - [ ] Allow deletion of old versions
 
-**Deliverables**: Complete document management system
+**Type Definitions** (`src/types/upload.ts`):
+```typescript
+export interface UploadedFile {
+  url: string;        // S3 URL from server
+  name: string;       // Original filename
+  size: number;       // File size in bytes
+  mimeType: string;   // MIME type (application/pdf, image/jpeg, etc.)
+}
+
+export interface FileUploadProps {
+  multiple?: boolean;
+  accept?: string;              // "application/pdf,image/*,.doc"
+  maxSize?: number;             // bytes
+  maxFiles?: number;            // for multiple uploads
+  onChange: (files: UploadedFile[]) => void;
+  buttonLabel?: string;
+}
+
+export interface ImageUploadProps {
+  images: File[];
+  setImages: React.Dispatch<React.SetStateAction<File[]>>;
+  maxFiles?: number;            // default 5
+  uploading?: boolean;
+  single?: boolean;
+  progressMap?: { [key: string]: number };
+  existingImages?: { url: string; isPrimary?: boolean }[];
+  setExistingImages?: (images: { url: string; isPrimary?: boolean }[]) => void;
+  onChange?: (images: { url: string; caption?: string; isPrimary?: boolean }[]) => void;
+}
+```
+
+**Deliverables**: Complete document management system with presigned URL upload pattern, reusable components for web/native, and type-safe upload service
 
 ---
 
 ### Milestone 2.4: Payment & Subscription (Tier-Based Feature Access)
+
+#### Payment Flow Architecture (Client-Side Driven)
+
+**Process Overview**:
+1. **Client requests Flutterwave credentials from server** → GET `/api/payment/credentials`
+   - Server returns only `publicKey` (secret key stays server-side)
+   - Used to initialize Flutterwave SDK on client (web: flutterwave-react-v3, mobile: flutterwave-react-native)
+
+2. **Client creates payment record** → POST `/api/payment/create` (authenticated)
+   - Body: `{ subscriptionId, amount, currency, description, customer }`
+   - Server creates local Payment record and returns `paymentId` + payment details
+   - Response now includes `meta.subscriptionId` so that recurring hooks can re-associate
+   - Client uses this data to configure Flutterwave SDK
+
+3. **Client processes payment via Flutterwave SDK**
+   - Web: use `flutterwave-react-v3` component or direct SDK
+   - Mobile: use `flutterwave-react-native` SDK
+   - SDK handles modal/UI; returns `flutterwaveTransactionId` on completion
+   - On successful card payment a recurring subscription is automatically created on Flutterwave in the backend
+     (no extra client work required)
+
+4. **Client verifies payment with server** → POST `/api/payment/verify` (authenticated)
+   - Body: `{ paymentId, flutterwaveTransactionId }`
+   - Server verifies transaction status with Flutterwave API (server-to-server)
+   - On success: activates subscription, returns updated payment record
+   - The server also updates `renewalDate` and stores the Flutterwave subscription ID
+   - Client handles success/failure UI, redirects, or closes modal as needed
+
+5. **Client updates local state & shows confirmation**
+   - Store subscription tier in Zustand/Redux
+   - Display success toast with confirmation details
+   - Redirect to subscription dashboard or feature access pages
+
+6. **Subsequent billing cycles**
+   - Flutterwave will automatically charge the customer on the selected interval
+   - Our `/api/payment/webhook` endpoint receives `charge.completed` events, creates new payment records,
+     and advances the subscription renewal date without any user interaction
+
+7. **Cancellation flow**
+   - When the user cancels via our UI, call `/api/subscription/:id/cancel`
+   - The server cancels the Flutterwave subscription using the stored subscription ID
+   - No further recurring payments will be attempted
+
+**Why This Approach**:
+- Mobile-friendly (no redirect URL headaches)
+- Can process payments from any UI context (multiple sections, modals, etc.)
+- Secure (secret key never exposed to client)
+- Flexible (client controls UI flow, not constrained by redirects)
+
+---
+
 - [ ] Create pricing screen with complete feature comparison
 - [ ] **Display subscription tiers with explicit feature matrix**:
   - [ ] **Free Tier** ($0/month):
@@ -1249,18 +2074,22 @@ src/views/backend/moderator/
     - [ ] WhatsApp/direct messaging with support team
     - [ ] Dedicated account relationship (optional upgrade)
 - [ ] Create subscription selection screen with tier benefits callout
-- [ ] Integrate Flutterwave payment with tier pricing
-- [ ] Implement payment flow:
-  - [ ] Initialize Flutterwave payment with selected tier
-  - [ ] Handle payment modal with receipt preview
-  - [ ] Verify payment status and activate subscription
-  - [ ] Send subscription confirmation email
+- [ ] **Integrate Flutterwave payment (client-side SDK flow)**:
+  - [ ] Fetch Flutterwave public key from `/api/payment/credentials` on mount
+  - [ ] Initialize Flutterwave SDK (web or mobile version)
+  - [ ] Create payment record via POST `/api/payment/create` with tier details
+  - [ ] Display Flutterwave payment modal/UI
+  - [ ] On payment completion, extract `flutterwaveTransactionId`
+  - [ ] Verify payment via POST `/api/payment/verify` with transaction ID
+  - [ ] Handle success: update local subscription state, show toast, redirect/close modal
+  - [ ] Handle failure: show error toast with retry option
 - [ ] Create subscription management:
   - [ ] View active subscription with tier badge
   - [ ] Display renewal date and next billing amount
+  - [ ] Show whether recurring billing is active and next trigger date
   - [ ] Implement upgrade flow (e.g., Free → Premium → Professional)
-  - [ ] Implement downgrade flow with warning
-  - [ ] Cancel subscription with reasons collection (for analytics)
+  - [ ] Implement downgrade flow with warning and pro‑ration info
+  - [ ] Cancel subscription with reasons collection (for analytics) and trigger backend cancellation of Flutterwave recurring plan
   - [ ] Show tier-locked features with paywall message
 - [ ] Implement payment history with invoice numbers
 - [ ] Create receipt display/download with subscription details
@@ -1358,20 +2187,92 @@ src/views/backend/moderator/
 - [ ] Create SOP form:
   - [ ] Select university
   - [ ] Select program
-  - [ ] Upload relevant documents (CV, certs)
-  - [ ] Add personal statement
-  - [ ] Career goals input
-- [ ] Integrate AI generation endpoint
-- [ ] Display generated SOP with preview
-- [ ] Implement SOP editing
-- [ ] Add download/share functionality
-- [ ] Create motivation letter generator
-- [ ] Implement same features for motivation letter
-- [ ] Add generation history
-- [ ] Create regeneration with different styles
-- [ ] Add feedback mechanism
+  - [ ] **Upload relevant documents using FileUpload component**:
+    - [ ] CV (single file, accept: `.pdf,.doc,.docx`)
+    - [ ] Certificates (multiple files, accept: `.pdf,.jpg,.jpeg,.png`)
+    - [ ] Other supporting docs (optional, multiple files)
+    - [ ] Use presigned URL upload pattern (see Milestone 2.3)
+    - [ ] Show upload progress during S3 transfer
+    - [ ] Display uploaded file names and sizes
+    - [ ] Allow removing uploaded files before generation
+  - [ ] Add personal statement (text input)
+  - [ ] Career goals input (text input)
+  - [ ] Target timeline (select: immediate, 3 months, 6 months)
+- [ ] **Create AI service integration** (`src/services/ai.ts`):
+  - [ ] `generateSOP(params: SOPGenerationParams)` - POST `/api/documents/generate`
+  - [ ] `generateMotivationLetter(params: LetterGenerationParams)` - POST `/api/documents/generate`
+  - [ ] Handle long-running AI generation with polling
+  - [ ] Display generation in-progress status with spinner
+  - [ ] Retrieve generated content from API response
+- [ ] **Implement AI generation flow**:
+  1. User fills form and uploads documents
+  2. Documents stored in S3 via presigned URLs
+  3. User clicks "Generate" button
+  4. Show loading spinner with "AI is writing your SOP..."
+  5. Call AI generation endpoint with document URLs and form data
+  6. Server retrieves documents from S3 and processes with Genkit
+  7. Return generated SOP content
+  8. Display preview in document editor
+- [ ] Display generated SOP with preview (read-only initially)
+- [ ] Implement SOP editing:
+  - [ ] Allow user to edit generated text
+  - [ ] Show character count and word count
+  - [ ] Highlight changes from original AI version
+  - [ ] Auto-save edits locally before submission
+- [ ] Add download/share functionality:
+  - [ ] Download as PDF
+  - [ ] Download as DOCX
+  - [ ] Share preview link
+  - [ ] Print-friendly format
+- [ ] Create motivation letter generator (same features as SOP)
+- [ ] Implement same upload/generation features for motivation letter
+- [ ] **Track document generation** (for feature usage limits):
+  - [ ] Free tier: 1 generation/month
+  - [ ] Premium+: Unlimited generations
+  - [ ] Show usage in dashboard
+  - [ ] Warn users of Free tier when approaching limit
+- [ ] Add generation history:
+  - [ ] List all generated documents
+  - [ ] Show generation date/time
+  - [ ] Display associated university/program
+  - [ ] Allow re-generation from history
+  - [ ] Allow deletion of old generations
+- [ ] Create regeneration with different styles:
+  - [ ] Formal style (academic, professional)
+  - [ ] Casual style (conversational, relatable)
+  - [ ] Concise style (bullet points, summary)
+  - [ ] Show style selection before regeneration
+- [ ] Add feedback mechanism:
+  - [ ] "Was this helpful?" rating
+  - [ ] Collect user feedback for AI improvement
+  - [ ] Flag problematic generations for review
+  - [ ] Send improvement suggestions to backend
 
-**Deliverables**: Functional AI document generators
+**Type Definitions** (`src/types/ai.ts`):
+```typescript
+export interface SOPGenerationParams {
+  universityId: string;
+  programId: string;
+  uploadedDocuments: UploadedFile[];  // CV, certificates, etc.
+  personalStatement: string;
+  careerGoals: string;
+  targetTimeline: 'immediate' | '3months' | '6months';
+}
+
+export interface GeneratedDocument {
+  id: string;
+  type: 'sop' | 'motivation_letter' | 'cover_letter';
+  content: string;
+  style: 'formal' | 'casual' | 'concise';
+  university: string;
+  program: string;
+  generatedAt: Date;
+  editedContent?: string;
+  wordCount: number;
+}
+```
+
+**Deliverables**: AI-powered document generation with upload integration, preview, editing, and version history
 
 ---
 
@@ -1390,17 +2291,21 @@ src/views/backend/moderator/
 - [ ] Create prep session history
 - [ ] Add difficulty level selection
 - [ ] Generate custom questions based on profile
-- [ ] **NEW - Interview Tracking**:
+- [ ] **NEW - Interview Tracking with Document Uploads**:
   - [ ] Log interview date & time
   - [ ] Add interview type (virtual, in-person)
   - [ ] Add interviewer name/info
   - [ ] Create pre-interview checklist
-  - [ ] Upload interview feedback/notes after completion
+  - [ ] **Upload interview feedback/notes after completion** (use FileUpload):
+    - [ ] Support text notes and document attachments
+    - [ ] Store in S3 via presigned URLs
+    - [ ] Link to application interview record
   - [ ] Track interview result (passed, pending, rejected)
   - [ ] Send reminders 24hrs before interview
   - [ ] Link to prep materials for that university
+  - [ ] Optional: Record interview practice sessions (native only with audio permission)
 
-**Deliverables**: Interview preparation module with tracking
+**Deliverables**: Interview preparation module with tracking and document upload for feedback
 
 ---
 
@@ -1672,6 +2577,62 @@ src/views/backend/moderator/
 
 ---
 
+## Phase 3.5: Dynamic Pricing Integration
+
+### Milestone 3.5.1: Pricing Page API Integration
+- [x] Refactor PricingPage.web.tsx:
+  - [x] Remove hardcoded `plans` array from component state
+  - [x] Remove hardcoded `addOns` array from component state
+  - [x] Create custom hook `usePricingPlans()` to fetch from API
+  - [x] Implement useEffect to call GET /api/pricing/plans on mount
+  - [x] Handle loading state while fetching pricing
+  - [x] Handle error state if API fails (fallback to cached data or demo data)
+  - [x] Store pricing in state based on API response
+  - [x] Map API response to component's internal format
+- [x] **API Integration Details**:
+  - [x] Endpoint: `GET /api/pricing/plans` (public, no auth required)
+  - [x] Response format: Array of pricing plans with tiers, prices (in EUR cents), features, addOns
+  - [x] Implement client-side price formatting:
+    - [x] Convert EUR cents to display format (e.g., 2499 → €24.99)
+    - [x] Support billingCycle toggle (monthly vs annual)
+    - [x] Calculate monthly vs annual comparison
+- [x] **Billing Cycle Toggle**:
+  - [x] Maintain existing toggle (monthly/annual)
+  - [x] Display prices based on selected cycle
+  - [x] Show savings for annual billing (e.g., "Save €40/year")
+  - [x] Update add-on prices dynamically if needed
+- [ ] **Fallback Strategy**:
+  - [ ] Cache pricing locally (localStorage) for offline access
+  - [ ] TTL: 1 hour (fetch fresh data every hour)
+  - [ ] Show "offline" indicator if API unavailable
+  - [ ] Allow viewing cached pricing while loading fresh data
+
+**Deliverables**: PricingPage connected to dynamic API pricing system
+
+---
+
+### Milestone 3.5.2: Pricing Display Across Platform
+- [x] Update PricingPage FAQ:
+  - [x] Replace all hardcoded prices with dynamic pricing data
+  - [x] Update "annual savings" calculation based on API data
+  - [x] Remove hardcoded dollar amounts
+- [x] Update LandingPage references:
+  - [x] Update testimonials with correct currency (EUR)
+  - [x] Update pricing references in hero section (if any)
+  - [x] Update CTA buttons to link to dynamic pricing
+- [x] Scan other frontend pages for pricing mentions:
+  - [x] CountrySelectionPage
+  - [x] PlatformOverviewPage
+  - [x] Any other pages with pricing references
+  - [x] Replace hardcoded prices with API calls or remove references
+- [ ] Mobile pricing integration:
+  - [ ] If mobile app has pricing screens, implement same API integration
+  - [ ] Test pricing fetch across both web and native platforms
+
+**Deliverables**: Consistent dynamic pricing across all frontend pages
+
+---
+
 ## Phase 4: Admin & Advanced Features (Weeks 11-13)
 
 ### Milestone 4.1: Admin Authentication & Dashboard
@@ -1751,6 +2712,109 @@ src/views/backend/moderator/
 - [ ] Create university approval workflow
 
 **Deliverables**: University and program management system
+
+---
+
+### Milestone 4.5: Admin Visa Intelligence & Settlement Data Management (NEW)
+- [ ] **Visa Requirements Management**:
+  - [ ] Create visa requirement add/edit screen
+  - [ ] Implement visa requirements form:
+    - [ ] Country selection
+    - [ ] Visa type (Student, Work, PR, etc.)
+    - [ ] Education requirements
+    - [ ] Language requirements (TOEFL/IELTS scores)
+    - [ ] Work experience requirements
+    - [ ] Salary thresholds
+    - [ ] Processing time (days)
+    - [ ] Visa fee
+    - [ ] Document checklist
+  - [ ] Create visa requirements list with filtering
+  - [ ] Add bulk import for visa requirements (CSV/JSON)
+  - [ ] Implement edit/delete functionality
+  - [ ] Data validation before submission
+
+- [ ] **Labour Shortage List Management**:
+  - [ ] Create labour shortage add/edit screen
+  - [ ] Implement form:
+    - [ ] Country selection
+    - [ ] Occupation code and name
+    - [ ] Demand level (high/medium/low)
+    - [ ] Salary range
+    - [ ] Education requirements
+    - [ ] Updated date
+  - [ ] Create labour shortage list with filters
+  - [ ] Add bulk import functionality (CSV/JSON)
+  - [ ] Implement edit/delete functionality
+
+- [ ] **Dependent Visa Management**:
+  - [ ] Create dependent visa add/edit screen
+  - [ ] Implement form:
+    - [ ] Country selection
+    - [ ] Visa type
+    - [ ] Dependent category (spouse, child, parent)
+    - [ ] Requirements checklist
+    - [ ] Processing timeline
+    - [ ] Cost
+    - [ ] Work authorization option
+    - [ ] Spouse employment options
+    - [ ] Schooling for children
+  - [ ] Create dependent visa list with filters
+  - [ ] Add bulk import functionality
+  - [ ] Implement edit/delete functionality
+
+- [ ] **Settlement Resources Management**:
+  - [ ] Create settlement resource add/edit screen
+  - [ ] Implement form:
+    - [ ] Country selection
+    - [ ] Category (housing, healthcare, education, jobs)
+    - [ ] Resource name and description
+    - [ ] Link/reference URL
+    - [ ] Relevance score
+  - [ ] Create settlement resources list with filters
+  - [ ] Add bulk import functionality
+  - [ ] Implement edit/delete functionality
+
+- [ ] **Post-Acceptance Resources Management**:
+  - [ ] Create accommodation resource add/edit screen
+  - [ ] Implement form:
+    - [ ] Country/City selection
+    - [ ] Housing platform name
+    - [ ] Link
+    - [ ] Average cost range
+    - [ ] Neighborhood recommendations
+  - [ ] Create student life resource add/edit screen
+  - [ ] Implement form:
+    - [ ] University/Country reference
+    - [ ] Resource type (registration, clubs, transport, etc.)
+    - [ ] Description
+    - [ ] Links & contacts
+    - [ ] Key information
+  - [ ] Create resource lists with filters
+  - [ ] Add bulk import functionality
+  - [ ] Implement edit/delete functionality
+
+- [ ] **Bulk Import Interface**:
+  - [ ] Create generic bulk import screen for all data types
+  - [ ] CSV/JSON file upload with validation
+  - [ ] Preview imported data before submission
+  - [ ] Error reporting and correction workflow
+  - [ ] Success confirmation with record count
+  - [ ] Import history/audit log
+
+- [ ] **PR Eligibility Management** (Optional):
+  - [ ] Create PR pathway add/edit screen
+  - [ ] Implement form:
+    - [ ] Country selection
+    - [ ] Pathway type (employment, study, points-based, etc.)
+    - [ ] Eligibility criteria
+    - [ ] Timeline to PR
+    - [ ] Requirements (post-job/residency)
+    - [ ] Living requirements
+    - [ ] Salary thresholds
+  - [ ] Create PR pathways list with filters
+  - [ ] Add bulk import functionality
+
+**Deliverables**: Complete admin interface for visa intelligence and settlement data management
 
 ---
 
@@ -2190,7 +3254,10 @@ src/views/backend/moderator/
   - [ ] Character count & reading time estimate
 - [ ] Image upload in editor:
   - [ ] "Insert Image" button in toolbar
-  - [ ] Image upload dialog:
+- [ ] Sanitization:
+  - [ ] Strip any `<script>` tags or inline event handlers from the editor HTML before saving
+  - [ ] Use a library such as DOMPurify or sanitize-html to clean output
+  - [ ] Ensure preview rendering uses the sanitized HTML  - [ ] Image upload dialog:
     - [ ] Upload from device (file input)
     - [ ] Insert from URL (paste link)
     - [ ] Image preview before inserting

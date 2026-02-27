@@ -40,6 +40,9 @@ const countrySchema = new mongoose.Schema(
     // Details
     description: String,
     immigrationWebsite: String,
+    // Schengen / travel info
+    schengenAccess: { type: Boolean, default: false },
+    digitalNomadVisas: [String], // list of digital nomad visa types available
 
     // Metadata
     createdAt: {
@@ -54,7 +57,8 @@ const countrySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-countrySchema.index({ name: 1 });
-countrySchema.index({ code: 1 });
+// `name` and `code` are declared with `unique: true` on their fields above,
+// which already creates the necessary indexes. Remove duplicate schema.index
+// declarations to avoid Mongoose warnings about duplicate indexes.
 
 module.exports = mongoose.model('Country', countrySchema);

@@ -77,9 +77,11 @@ const paymentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-paymentSchema.index({ userId: 1 });
 paymentSchema.index({ status: 1 });
-paymentSchema.index({ flutterwaveTransactionId: 1 });
 paymentSchema.index({ createdAt: 1 });
+
+// Note: `flutterwaveTransactionId` is declared with `unique: true` on the field
+// and therefore already creates an index. Avoid creating a duplicate index
+// with `schema.index()` to prevent Mongoose warnings.
 
 module.exports = mongoose.model('Payment', paymentSchema);

@@ -24,12 +24,18 @@ const authValidators = {
       .withMessage('Password must be at least 8 characters')
       .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/)
       .withMessage('Password must contain uppercase, lowercase, number, and special character'),
-    body('name')
+    body('firstName')
       .trim()
       .notEmpty()
-      .withMessage('Name is required')
-      .isLength({ min: 2, max: 100 })
-      .withMessage('Name must be between 2 and 100 characters'),
+      .withMessage('First name is required')
+      .isLength({ min: 1, max: 50 })
+      .withMessage('First name must be between 1 and 50 characters'),
+    body('lastName')
+      .trim()
+      .notEmpty()
+      .withMessage('Last name is required')
+      .isLength({ min: 1, max: 50 })
+      .withMessage('Last name must be between 1 and 50 characters'),
     body('phone')
       .optional()
       .isMobilePhone()
@@ -82,6 +88,102 @@ const authValidators = {
   ],
 };
 
+// --------- ADMIN-SPECIFIC VALIDATORS ----------
+// Used by admin authentication and user management endpoints
+const adminValidators = {
+  auth: {
+    login: [
+      body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+      body('password').notEmpty().withMessage('Password is required'),
+      body('otpCode')
+        .optional()
+        .isLength({ min: 6, max: 6 })
+        .isNumeric()
+        .withMessage('OTP code must be 6 digits'),
+    ],
+    logout: [
+      body('refreshToken').notEmpty().withMessage('Refresh token is required'),
+    ],
+  },
+  user: {
+    list: [
+      query('page').optional().isInt({ min: 1 }).toInt(),
+      query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
+      query('search').optional().trim(),
+    ],
+    get: [param('id').isMongoId().withMessage('Valid user ID is required')],
+    suspend: [param('id').isMongoId().withMessage('Valid user ID is required')],
+    activate: [param('id').isMongoId().withMessage('Valid user ID is required')],
+    delete: [param('id').isMongoId().withMessage('Valid user ID is required')],
+    resetPassword: [param('id').isMongoId().withMessage('Valid user ID is required')],
+    viewDocs: [param('id').isMongoId().withMessage('Valid user ID is required')],
+    bulkAction: [
+      body('userIds').isArray({ min: 1 }).withMessage('userIds must be an array'),
+      body('action').isIn(['suspend', 'activate', 'delete']).withMessage('Invalid bulk action'),
+    ],
+    approve: [param('id').isMongoId().withMessage('Valid user ID is required')],
+    reject: [param('id').isMongoId().withMessage('Valid user ID is required')],
+  },
+};
+
+// ---------- Visa Engines Validators ----------
+const visaEngineValidators = {
+  skillMatch: [
+    body('skills').optional().isArray().withMessage('Skills must be an array'),
+    body('experience').optional(),
+  ],
+  feasibility: [
+    body('countries').optional().isArray().withMessage('Countries must be an array'),
+  ],
+  prPathway: [
+    body('countryId').notEmpty().isMongoId().withMessage('Valid countryId is required'),
+  ],
+};
+
+// ---------- Visa Data Validators ----------
+const visaDataValidators = {
+  getRequirements: [param('country').notEmpty(), param('visaType').optional()],
+  getPathways: [param('country').notEmpty()],
+  getLabourShortages: [param('country').notEmpty()],
+  adminCreate: [body('countryId').isMongoId().notEmpty()],
+  adminUpdate: [param('id').isMongoId().notEmpty()],
+};
+
+// ---------- Dependent Visa Validators ----------
+const dependentVisaValidators = {
+  getDependent: [param('country').notEmpty(), param('visaType').notEmpty()],
+  getFamilyRelocation: [param('country').notEmpty()],
+  familyCostEstimate: [body('countryId').isMongoId().notEmpty(), body('familySize').isInt({ min: 1 })],
+  adminCreate: [body('countryId').isMongoId().notEmpty(), body('visaType').notEmpty()],
+  adminUpdate: [param('id').isMongoId().notEmpty()],
+};
+
+// ---------- Settlement Validators ----------
+const settlementValidators = {
+  getResources: [param('country').notEmpty()],
+  getPRTimeline: [param('country').notEmpty()],
+  getSchengen: [param('country').notEmpty()],
+  jobMarketAnalysis: [param('country').notEmpty()],
+  adminCreate: [body('countryId').isMongoId().notEmpty(), body('category').notEmpty()],
+  adminUpdate: [param('id').isMongoId().notEmpty()],
+};
+
+// ---------- Post-Acceptance Validators ----------
+const postAcceptanceValidators = {
+  initChecklist: [param('appId').isMongoId(), body('items').optional().isArray()],
+  getChecklist: [param('appId').isMongoId()],
+  markItem: [param('appId').isMongoId(), param('itemId').isMongoId(), body('status').isIn(['pending','completed'])],
+  getAccommodation: [param('country').notEmpty()],
+  getStudentLife: [param('country').notEmpty()],
+  getPreArrival: [param('country').notEmpty()],
+  costEstimate: [body('countryId').isMongoId(), body('familySize').optional().isInt({ min: 1 })],
+};
+
+// ---------- Admin Data Validators ----------
+const adminDataValidators = {
+  import: [param('model').notEmpty(), body('records').isArray()],
+  export: [param('model').notEmpty()],
+};
 // ============ USER PROFILE ============
 const userValidators = {
   updateProfile: [
@@ -182,7 +284,7 @@ const applicationValidators = {
   ],
 
   update: [
-    param('id')
+    param('applicationId')
       .isMongoId()
       .withMessage('Valid application ID is required'),
     body('status')
@@ -200,8 +302,41 @@ const applicationValidators = {
       .withMessage('Valid deadline date is required'),
   ],
 
+  updateStatus: [
+    param('applicationId')
+      .isMongoId()
+      .withMessage('Valid application ID is required'),
+    body('status')
+      .notEmpty()
+      .isIn(['draft', 'submitted', 'under-review', 'pending-documents', 'rejected', 'accepted', 'conditional-accept', 'deferred'])
+      .withMessage('Invalid application status'),
+  ],
+
+  addDocument: [
+    param('applicationId')
+      .isMongoId()
+      .withMessage('Valid application ID is required'),
+    body('documentId')
+      .notEmpty()
+      .isMongoId()
+      .withMessage('Valid document ID is required'),
+    body('documentType')
+      .notEmpty()
+      .trim()
+      .withMessage('Document type is required'),
+  ],
+
+  removeDocument: [
+    param('applicationId')
+      .isMongoId()
+      .withMessage('Valid application ID is required'),
+    param('documentId')
+      .isMongoId()
+      .withMessage('Valid document ID is required'),
+  ],
+
   delete: [
-    param('id')
+    param('applicationId')
       .isMongoId()
       .withMessage('Valid application ID is required'),
   ],
@@ -232,6 +367,93 @@ const applicationValidators = {
 
 // ============ DOCUMENTS ============
 const documentValidators = {
+  create: [
+    body('applicationId')
+      .optional()
+      .isMongoId()
+      .withMessage('Valid application ID is required'),
+    body('documentType')
+      .trim()
+      .notEmpty()
+      .isIn(['sop', 'cv', 'cover-letter', 'transcript', 'ielts', 'gre', 'gmat', 'other'])
+      .withMessage('Valid document type is required'),
+    body('title')
+      .trim()
+      .notEmpty()
+      .isLength({ min: 1, max: 200 })
+      .withMessage('Title must be between 1 and 200 characters'),
+    body('fileUrl')
+      .isURL()
+      .withMessage('Valid S3 file URL is required'),
+    body('fileName')
+      .trim()
+      .notEmpty()
+      .withMessage('File name is required'),
+    body('fileSize')
+      .isInt({ min: 1, max: 52428800 })
+      .withMessage('Valid file size is required'),
+  ],
+
+  getById: [
+    param('documentId')
+      .isMongoId()
+      .withMessage('Valid document ID is required'),
+  ],
+
+  update: [
+    param('documentId')
+      .isMongoId()
+      .withMessage('Valid document ID is required'),
+    body('title')
+      .optional()
+      .trim()
+      .isLength({ min: 1, max: 200 })
+      .withMessage('Title must be between 1 and 200 characters'),
+    body('documentType')
+      .optional()
+      .trim()
+      .isIn(['sop', 'cv', 'cover-letter', 'transcript', 'ielts', 'gre', 'gmat', 'other'])
+      .withMessage('Valid document type is required'),
+    body('notes')
+      .optional()
+      .trim()
+      .isLength({ max: 1000 })
+      .withMessage('Notes must be max 1000 characters'),
+  ],
+
+  verify: [
+    param('documentId')
+      .isMongoId()
+      .withMessage('Valid document ID is required'),
+  ],
+
+  generate: [
+    body('documentType')
+      .notEmpty()
+      .trim()
+      .withMessage('Document type is required'),
+    body('applicationId')
+      .optional()
+      .isMongoId()
+      .withMessage('Valid application ID is required'),
+    body('dataInputs')
+      .optional()
+      .isObject()
+      .withMessage('dataInputs must be an object'),
+  ],
+
+  delete: [
+    param('documentId')
+      .isMongoId()
+      .withMessage('Valid document ID is required'),
+  ],
+
+  getApplicationDocuments: [
+    param('applicationId')
+      .isMongoId()
+      .withMessage('Valid application ID is required'),
+  ],
+
   upload: [
     body('applicationId')
       .optional()
@@ -259,12 +481,6 @@ const documentValidators = {
       .withMessage('Filename must not be empty'),
   ],
 
-  delete: [
-    param('id')
-      .isMongoId()
-      .withMessage('Valid document ID is required'),
-  ],
-
   listWithPagination: [
     query('page')
       .optional()
@@ -285,33 +501,103 @@ const documentValidators = {
   ],
 };
 
-// ============ PAYMENTS & SUBSCRIPTIONS ============
-const paymentValidators = {
-  subscribe: [
-    body('planId')
+// ============ FILE UPLOADS (S3) ============
+const uploadValidators = {
+  presignUrl: [
+    query('fileName')
+      .trim()
       .notEmpty()
-      .isMongoId()
-      .withMessage('Valid plan ID is required'),
-    body('email')
-      .isEmail()
-      .normalizeEmail()
-      .withMessage('Valid email is required'),
-    body('amount')
-      .isFloat({ min: 0 })
-      .withMessage('Valid amount is required'),
+      .isLength({ min: 1, max: 255 })
+      .withMessage('File name must be between 1 and 255 characters'),
+    query('fileSize')
+      .notEmpty()
+      .isInt({ min: 1, max: 52428800 }) // 50MB max
+      .withMessage('File size must be between 1 and 50MB'),
+    query('fileType')
+      .optional()
+      .trim()
+      .isIn(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'xlsx', 'xls', 'ppt', 'pptx'])
+      .withMessage('Valid file type is required'),
   ],
 
-  webhook: [
-    body('status')
+  generateBatch: [
+    body('files')
+      .isArray({ min: 1, max: 10 })
+      .withMessage('Files array must contain 1-10 items'),
+    body('files.*.fileName')
+      .trim()
       .notEmpty()
-      .isIn(['successful', 'pending', 'failed', 'cancelled'])
-      .withMessage('Valid status is required'),
-    body('transaction_id')
+      .isLength({ min: 1, max: 255 })
+      .withMessage('Each file name must be between 1 and 255 characters'),
+    body('files.*.fileSize')
+      .isInt({ min: 1, max: 52428800 })
+      .withMessage('Each file size must be between 1 and 50MB'),
+    body('files.*.fileType')
+      .optional()
+      .trim()
+      .isIn(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'xlsx', 'xls', 'ppt', 'pptx'])
+      .withMessage('Valid file type is required'),
+  ],
+
+  confirmUpload: [
+    body('fileName')
+      .trim()
       .notEmpty()
-      .withMessage('Transaction ID is required'),
+      .isLength({ min: 1, max: 255 })
+      .withMessage('File name is required'),
+    body('fileSize')
+      .isInt({ min: 1 })
+      .withMessage('Valid file size is required'),
+    body('s3Url')
+      .isURL()
+      .withMessage('Valid S3 URL is required'),
+  ],
+};
+
+// ============ PAYMENTS & SUBSCRIPTIONS ============
+const paymentValidators = {
+  createPayment: [
+    body('subscriptionId')
+      .notEmpty()
+      .isMongoId()
+      .withMessage('Valid subscription ID is required'),
     body('amount')
-      .isFloat({ min: 0 })
-      .withMessage('Valid amount is required'),
+      .isFloat({ min: 1 })
+      .withMessage('Valid amount (in cents) is required'),
+    body('currency')
+      .optional()
+      .isIn(['EUR', 'USD', 'GBP', 'NGN'])
+      .withMessage('Valid currency is required'),
+    body('description')
+      .optional()
+      .trim()
+      .notEmpty(),
+    body('customer')
+      .optional()
+      .isObject()
+      .withMessage('Customer must be an object'),
+    body('customer.name')
+      .optional()
+      .trim()
+      .notEmpty(),
+    body('customer.email')
+      .optional()
+      .isEmail()
+      .normalizeEmail(),
+    body('customer.phone')
+      .optional()
+      .trim()
+      .notEmpty(),
+  ],
+
+  verifyPayment: [
+    body('paymentId')
+      .notEmpty()
+      .isMongoId()
+      .withMessage('Valid payment ID is required'),
+    body('flutterwaveTransactionId')
+      .notEmpty()
+      .withMessage('Flutterwave transaction ID is required'),
   ],
 
   updateSubscription: [
@@ -330,6 +616,17 @@ const paymentValidators = {
       .withMessage('Valid subscription ID is required'),
   ],
 
+  history: [
+    query('page')
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage('Page must be a positive integer'),
+    query('pageSize')
+      .optional()
+      .isInt({ min: 1, max: 100 })
+      .withMessage('Page size must be between 1 and 100'),
+  ],
+
   getUsageHistory: [
     query('feature')
       .optional()
@@ -340,6 +637,7 @@ const paymentValidators = {
       .optional()
       .isInt({ min: 1 })
       .withMessage('Page must be a positive integer'),
+
     query('pageSize')
       .optional()
       .isInt({ min: 1, max: 100 })
@@ -347,7 +645,106 @@ const paymentValidators = {
   ],
 };
 
-// ============ UNIVERSITIES & PROGRAMS ============
+// ---------- Subscription Validators (re-exported from paymentValidators) ----------
+const subscriptionValidators = {
+  updateSubscription: paymentValidators.updateSubscription,
+  cancelSubscription: paymentValidators.cancelSubscription,
+  history: paymentValidators.history,
+  getUsageHistory: paymentValidators.getUsageHistory,
+};
+
+// ============ COUNTRIES & VISA INFORMATION ============
+const countryValidators = {
+  create: [
+    body('name')
+      .trim()
+      .notEmpty()
+      .isLength({ min: 2, max: 100 })
+      .withMessage('Country name must be between 2 and 100 characters'),
+    body('code')
+      .trim()
+      .notEmpty()
+      .isLength({ min: 2, max: 3 })
+      .withMessage('Country code must be 2-3 characters (ISO 3166-1)'),
+    body('region')
+      .optional()
+      .trim()
+      .notEmpty()
+      .withMessage('Region must not be empty'),
+    body('description')
+      .optional()
+      .trim()
+      .isLength({ min: 10, max: 5000 })
+      .withMessage('Description must be between 10 and 5000 characters'),
+  ],
+
+  update: [
+    param('id')
+      .custom(id => id.match(/^[0-9a-fA-F]{24}$/) || /^[A-Z]{2,3}$/.test(id))
+      .withMessage('Valid country ID or code is required'),
+    body('name')
+      .optional()
+      .trim()
+      .isLength({ min: 2, max: 100 })
+      .withMessage('Country name must be between 2 and 100 characters'),
+    body('code')
+      .optional()
+      .trim()
+      .isLength({ min: 2, max: 3 })
+      .withMessage('Country code must be 2-3 characters'),
+  ],
+
+  delete: [
+    param('id')
+      .custom(id => id.match(/^[0-9a-fA-F]{24}$/) || /^[A-Z]{2,3}$/.test(id))
+      .withMessage('Valid country ID or code is required'),
+  ],
+
+  getDetail: [
+    param('id')
+      .custom(id => id.match(/^[0-9a-fA-F]{24}$/) || /^[A-Z]{2,3}$/.test(id))
+      .withMessage('Valid country ID or code is required'),
+  ],
+
+  list: [
+    query('page')
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage('Page must be a positive integer'),
+    query('pageSize')
+      .optional()
+      .isInt({ min: 1, max: 100 })
+      .withMessage('Page size must be between 1 and 100'),
+    query('region')
+      .optional()
+      .trim()
+      .notEmpty()
+      .withMessage('Region must not be empty'),
+    query('search')
+      .optional()
+      .trim()
+      .isLength({ min: 1 })
+      .withMessage('Search query must not be empty'),
+  ],
+
+  search: [
+    query('q')
+      .notEmpty()
+      .trim()
+      .isLength({ min: 1 })
+      .withMessage('Search query is required'),
+  ],
+
+  bulkImport: [
+    body('countries')
+      .isArray()
+      .withMessage('Countries must be an array'),
+    body('countries')
+      .custom(arr => arr.length <= 500)
+      .withMessage('Cannot import more than 500 countries at once'),
+  ],
+};
+
 const universityValidators = {
   create: [
     body('name')
@@ -395,10 +792,26 @@ const universityValidators = {
       .trim()
       .notEmpty()
       .withMessage('Country must not be empty'),
-    query('ranking')
+    query('region')
+      .optional()
+      .trim()
+      .notEmpty()
+      .withMessage('Region must not be empty'),
+    query('minRanking')
       .optional()
       .isInt({ min: 1 })
-      .withMessage('Ranking must be a positive integer'),
+      .withMessage('Minimum ranking must be a positive integer'),
+    query('maxRanking')
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage('Maximum ranking must be a positive integer'),
+    query('limit')
+      .optional()
+      .isInt({ min: 1, max: 100 })
+      .withMessage('Limit must be between 1 and 100'),
+  ],
+
+  list: [
     query('page')
       .optional()
       .isInt({ min: 1 })
@@ -407,6 +820,65 @@ const universityValidators = {
       .optional()
       .isInt({ min: 1, max: 100 })
       .withMessage('Page size must be between 1 and 100'),
+    query('country')
+      .optional()
+      .trim()
+      .notEmpty()
+      .withMessage('Country must not be empty'),
+    query('region')
+      .optional()
+      .trim()
+      .notEmpty()
+      .withMessage('Region must not be empty'),
+    query('search')
+      .optional()
+      .trim()
+      .isLength({ min: 1 })
+      .withMessage('Search query must not be empty'),
+    query('sortBy')
+      .optional()
+      .isIn(['name', 'qs_ranking', 'times_ranking', 'viewCount'])
+      .withMessage('Invalid sort field'),
+    query('sortOrder')
+      .optional()
+      .isIn(['asc', 'desc'])
+      .withMessage('Sort order must be asc or desc'),
+  ],
+
+  getDetail: [
+    param('id')
+      .isMongoId()
+      .withMessage('Valid university ID is required'),
+  ],
+
+  incrementView: [
+    param('id')
+      .isMongoId()
+      .withMessage('Valid university ID is required'),
+  ],
+
+  compare: [
+    body('universityIds')
+      .isArray({ min: 2, max: 5 })
+      .withMessage('Please provide 2 to 5 university IDs'),
+    body('universityIds.*')
+      .isMongoId()
+      .withMessage('Each ID must be a valid MongoDB ObjectId'),
+  ],
+
+  delete: [
+    param('id')
+      .isMongoId()
+      .withMessage('Valid university ID is required'),
+  ],
+
+  bulkImport: [
+    body('universities')
+      .isArray()
+      .withMessage('Universities must be an array'),
+    body('universities')
+      .custom(arr => arr.length <= 1000)
+      .withMessage('Cannot import more than 1000 universities at once'),
   ],
 };
 
@@ -420,16 +892,16 @@ const programValidators = {
       .notEmpty()
       .isLength({ min: 2, max: 200 })
       .withMessage('Program name must be between 2 and 200 characters'),
-    body('fieldOfStudy')
+    body('field')
+      .optional()
       .trim()
       .notEmpty()
-      .withMessage('Field of study is required'),
-    body('degree')
-      .trim()
+      .withMessage('Field of study must not be empty'),
+    body('level')
       .notEmpty()
-      .isIn(['bachelor', 'master', 'phd'])
+      .isIn(['bachelor', 'master', 'phd', 'diploma', 'certificate'])
       .withMessage('Valid degree level is required'),
-    body('tuitionFeeMin')
+    body('tuitionFee')
       .optional()
       .isFloat({ min: 0 })
       .withMessage('Valid tuition fee is required'),
@@ -437,12 +909,110 @@ const programValidators = {
       .optional()
       .isISO8601()
       .withMessage('Valid application deadline is required'),
+    body('description')
+      .optional()
+      .trim()
+      .isLength({ min: 10, max: 5000 })
+      .withMessage('Description must be between 10 and 5000 characters'),
   ],
 
   update: [
     param('id')
       .isMongoId()
       .withMessage('Valid program ID is required'),
+    body('name')
+      .optional()
+      .trim()
+      .isLength({ min: 2, max: 200 })
+      .withMessage('Program name must be between 2 and 200 characters'),
+    body('level')
+      .optional()
+      .isIn(['bachelor', 'master', 'phd', 'diploma', 'certificate'])
+      .withMessage('Valid degree level is required'),
+    body('field')
+      .optional()
+      .trim()
+      .notEmpty()
+      .withMessage('Field of study must not be empty'),
+  ],
+
+  delete: [
+    param('id')
+      .isMongoId()
+      .withMessage('Valid program ID is required'),
+  ],
+
+  getDetail: [
+    param('id')
+      .isMongoId()
+      .withMessage('Valid program ID is required'),
+  ],
+
+  list: [
+    query('page')
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage('Page must be a positive integer'),
+    query('pageSize')
+      .optional()
+      .isInt({ min: 1, max: 100 })
+      .withMessage('Page size must be between 1 and 100'),
+    query('universityId')
+      .optional()
+      .isMongoId()
+      .withMessage('Valid university ID is required'),
+    query('field')
+      .optional()
+      .trim()
+      .notEmpty()
+      .withMessage('Field must not be empty'),
+    query('degree')
+      .optional()
+      .isIn(['bachelor', 'master', 'phd', 'diploma', 'certificate'])
+      .withMessage('Invalid degree level'),
+    query('search')
+      .optional()
+      .trim()
+      .isLength({ min: 1 })
+      .withMessage('Search query must not be empty'),
+  ],
+
+  search: [
+    query('q')
+      .optional()
+      .trim()
+      .isLength({ min: 1 })
+      .withMessage('Search query must not be empty'),
+    query('field')
+      .optional()
+      .trim()
+      .notEmpty()
+      .withMessage('Field must not be empty'),
+    query('degree')
+      .optional()
+      .isIn(['bachelor', 'master', 'phd', 'diploma', 'certificate'])
+      .withMessage('Invalid degree level'),
+    query('minTuition')
+      .optional()
+      .isFloat({ min: 0 })
+      .withMessage('Minimum tuition must be a valid number'),
+    query('maxTuition')
+      .optional()
+      .isFloat({ min: 0 })
+      .withMessage('Maximum tuition must be a valid number'),
+    query('limit')
+      .optional()
+      .isInt({ min: 1, max: 100 })
+      .withMessage('Limit must be between 1 and 100'),
+  ],
+
+  bulkImport: [
+    body('programs')
+      .isArray()
+      .withMessage('Programs must be an array'),
+    body('programs')
+      .custom(arr => arr.length <= 2000)
+      .withMessage('Cannot import more than 2000 programs at once'),
   ],
 };
 
@@ -1182,6 +1752,90 @@ const newsletterValidators = {
   ],
 };
 
+// ============ PRICING VALIDATORS ============
+// used by admin pricing endpoints
+const pricingValidators = {
+  upsertPlan: [
+    body('tier')
+      .notEmpty()
+      .isIn(['free', 'premium', 'professional'])
+      .withMessage('Tier must be one of free, premium, professional'),
+    body('name').optional().isString().trim().withMessage('Name must be text'),
+    body('monthlyPrice').optional().isInt({ min: 0 }).withMessage('monthlyPrice must be integer cents'),
+    body('annualPrice').optional().isInt({ min: 0 }).withMessage('annualPrice must be integer cents'),
+    body('features').optional().isArray().withMessage('Features must be an array'),
+    body('addOns').optional().isArray().withMessage('AddOns must be an array'),
+  ],
+};
+
+// ============ AI FEATURE VALIDATORS ============
+const sopValidators = {
+  generate: [
+    body('university').notEmpty().withMessage('University is required'),
+    body('program').notEmpty().withMessage('Program is required'),
+    body('userProfile').notEmpty().withMessage('User profile is required'),
+    body('tone').optional().isString(),
+  ],
+  regenerate: [
+    // reuse the same rules as generate plus a document id
+    body('university').notEmpty().withMessage('University is required'),
+    body('program').notEmpty().withMessage('Program is required'),
+    body('userProfile').notEmpty().withMessage('User profile is required'),
+    body('tone').optional().isString(),
+    body('docId').notEmpty().isMongoId().withMessage('Document ID required'),
+  ],
+  score: [
+    body('text').notEmpty().withMessage('Text required for scoring'),
+  ],
+};
+
+const letterValidators = {
+  generate: [
+    body('type')
+      .notEmpty()
+      .isIn(['motivation', 'cover'])
+      .withMessage('Type must be motivation or cover'),
+    body('university').notEmpty().withMessage('University is required'),
+    body('program').notEmpty().withMessage('Program is required'),
+    body('userProfile').notEmpty().withMessage('User profile is required'),
+    body('tone').optional().isString(),
+  ],
+  regenerate: [
+    body('docId').notEmpty().isMongoId().withMessage('Document ID required'),
+    body('options').optional().isObject().withMessage('Options object expected'),
+  ],
+};
+
+const interviewValidators = {
+  generate: [
+    body('university').notEmpty().withMessage('University is required'),
+    body('program').notEmpty().withMessage('Program is required'),
+    body('userProfile').optional().isString(),
+    body('difficulty').optional().isIn(['easy','medium','hard']),
+  ],
+  answers: [
+    body('questions').isArray().withMessage('Questions array required'),
+    body('userProfile').optional().isString(),
+  ],
+  feedback: [
+    body('userId').notEmpty().isMongoId(),
+    body('sessionId').notEmpty().withMessage('sessionId required'),
+    body('feedback').notEmpty().withMessage('Feedback required'),
+  ],
+};
+
+const recommendationValidators = {
+  recommend: [
+    body('userProfile').notEmpty().withMessage('User profile text required'),
+    body('filters').optional().isObject().withMessage('Filters must be object'),
+    body('budget').optional().isNumeric().withMessage('Budget must be number'),
+  ],
+  track: [
+    body('userId').optional().isMongoId(),
+    body('universityId').isMongoId().withMessage('University ID required'),
+  ],
+};
+
 /**
  * ============================================
  * EXPORTS
@@ -1191,10 +1845,14 @@ const newsletterValidators = {
 module.exports = {
   // Validators grouped by feature
   authValidators,
+  adminValidators,
   userValidators,
   applicationValidators,
   documentValidators,
+  uploadValidators,
   paymentValidators,
+  subscriptionValidators,
+  countryValidators,
   universityValidators,
   programValidators,
   jobValidators,
@@ -1202,6 +1860,13 @@ module.exports = {
   blogCommentValidators,
   professionalServiceValidators,
   newsletterValidators,
+  pricingValidators,
+  visaEngineValidators,
+  visaDataValidators,
+  dependentVisaValidators,
+  settlementValidators,
+  postAcceptanceValidators,
+  adminDataValidators,
 
   // Error handling
   handleValidationErrors,
@@ -1211,7 +1876,10 @@ module.exports = {
   ...userValidators,
   ...applicationValidators,
   ...documentValidators,
+  ...uploadValidators,
   ...paymentValidators,
+  ...subscriptionValidators,
+  ...countryValidators,
   ...universityValidators,
   ...programValidators,
   ...jobValidators,
@@ -1219,4 +1887,19 @@ module.exports = {
   ...blogCommentValidators,
   ...professionalServiceValidators,
   ...newsletterValidators,
+  ...pricingValidators,
+  sopValidators,
+  letterValidators,
+  interviewValidators,
+  recommendationValidators,
+  visaEngineValidators,
+  visaDataValidators,
+  dependentVisaValidators,
+  settlementValidators,
+  postAcceptanceValidators,
+  adminDataValidators,
+  adminValidators,
+  blogValidators,
+  blogCommentValidators,
+  newsletterValidators,
 };

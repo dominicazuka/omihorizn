@@ -50,7 +50,8 @@ const universitySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-universitySchema.index({ name: 1 });
 universitySchema.index({ country: 1 });
+// `name` has `unique: true` on the field declaration above and therefore
+// already creates an index. Avoid a duplicate `schema.index({ name: 1 })`.
 
 module.exports = mongoose.model('University', universitySchema);

@@ -17,6 +17,11 @@ const premiumFeatureUsageSchema = new mongoose.Schema(
       ref: 'PremiumFeature',
       required: true,
     },
+    featureKey: {
+      type: String,
+      required: false,
+      index: true,
+    },
 
     // Usage Tracking
     usageCount: {

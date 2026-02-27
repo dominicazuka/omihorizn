@@ -154,7 +154,7 @@ const SuccessStoriesSection: React.FC = () => (
       <SuccessStory
         name="Sofia K."
         country="Brazil → Portugal"
-        testimonial="As a student, the scholarship matching saved me $50k. Plus the document review service was invaluable."
+        testimonial="As a student, the scholarship matching saved me €50k. Plus the document review service was invaluable."
         result="Scholarship: €40k/yr"
       />
     </div>

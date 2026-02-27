@@ -212,13 +212,29 @@ import { useApi } from '@/hooks/useApi';
 const { data, loading, error } = useApi('/applications');
 ```
 
-## 💳 Payments
+## 💳 Payments (Client-Side Flutterwave Integration)
 
-Payments handled through Flutterwave:
-- Subscription payments
-- One-time purchases
-- Webhook verification
-- Receipt generation
+**Architecture**: Client-driven payment processing with Flutterwave SDK
+- Web: `flutterwave-react-v3`
+- Mobile: `flutterwave-react-native`
+
+**Payment Flow**:
+1. **Fetch credentials**: `GET /api/payment/credentials` → server returns Flutterwave public key
+2. **Create payment record**: `POST /api/payment/create` → server returns `paymentId` and payment details
+3. **Initialize SDK**: Use Flutterwave SDK (web/mobile) with public key and payment details
+4. **Process payment**: User completes payment in SDK modal/UI
+5. **Get transaction ID**: SDK returns `flutterwaveTransactionId` on completion
+6. **Verify with server**: `POST /api/payment/verify` with `paymentId` and `flutterwaveTransactionId`
+7. **Activate subscription**: Server verifies with Flutterwave API, activates subscription on success
+8. **Update UI**: Client stores subscription in Zustand, shows success toast, redirects/closes modal
+
+**Key Benefits**:
+- No redirect URLs (works for mobile and web)
+- Can process payments from any UI context (modals, multiple sections)
+- Flexible error handling and retry logic
+- Server verifies all transactions (secure)
+
+See [PaymentFlow.tsx](./components/payments/) for implementation examples.
 
 ## 📤 File Upload
 

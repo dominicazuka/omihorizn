@@ -82,7 +82,14 @@ const optionalAuth = async (req, res, next) => {
   }
 };
 
+// existing imports remain valid and we have a single canonical import point.
+const { authorize, roleVerificationEndpoint } = require('./authorization');
+
 module.exports = {
   authenticateToken,
   optionalAuth,
+  // alias for authorization.authorize - usage: requireRole('admin')
+  requireRole: authorize,
+  // alias for the verification endpoint used by the client
+  roleVerificationEndpoint,
 };

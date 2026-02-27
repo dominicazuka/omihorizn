@@ -77,6 +77,19 @@ const applicationSchema = new mongoose.Schema(
     },
     advisorNotes: String,
 
+    // Visa appointment tracking
+    visaAppointmentDate: Date,
+    visaDocumentChecklist: [String],
+
+    // Dependent tracking (for family visas)
+    dependents: [
+      {
+        name: String,
+        relation: { type: String, enum: ['spouse', 'child', 'parent', 'other'] },
+        age: Number,
+      },
+    ],
+
     // Metadata
     createdAt: {
       type: Date,

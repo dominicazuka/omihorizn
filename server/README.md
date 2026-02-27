@@ -255,11 +255,30 @@ server/
 - `GET /api/documents/:id` - Get document
 - `DELETE /api/documents/:id` - Delete document
 
-### Payments
-- `POST /api/payments/subscribe` - Create subscription
-- `POST /api/payments/webhook` - Flutterwave webhook
-- `GET /api/payments/history` - Payment history
-- `GET /api/payments/subscription` - Current subscription
+### Payments (Client-Driven Flutterwave Flow)
+
+**Architecture**: Client processes payment via Flutterwave SDK; server verifies with Flutterwave API
+
+- `GET /api/payment/credentials` - Get Flutterwave public key (no auth required)
+- `POST /api/payment/create` - Create payment record before SDK processing (authenticated)
+- `POST /api/payment/verify` - Verify transaction after SDK completes (authenticated)
+- `GET /api/payment/:paymentId/status` - Check payment status (authenticated)
+- `GET /api/payment/history` - User's payment history (authenticated)
+
+**Client Flow**:
+1. Fetch credentials: `GET /api/payment/credentials` → get public key
+2. Create record: `POST /api/payment/create` → get paymentId
+3. Process payment via Flutterwave SDK (web/mobile)
+4. Verify with server: `POST /api/payment/verify` → server confirms with Flutterwave API
+5. Activate subscription on success
+
+**Subscriptions**:
+- `POST /api/subscription/create` - Create subscription (user)
+- `GET /api/subscription/me` - Get current subscription (authenticated)
+- `PUT /api/subscription/:subscriptionId` - Update subscription (admin/user, with proration)
+- `POST /api/subscription/:subscriptionId/cancel` - Cancel subscription (authenticated)
+- `GET /api/subscription/history` - Subscription history (authenticated)
+- `GET /api/subscription/usage` - Feature usage stats (authenticated)
 
 ### Universities
 - `GET /api/universities` - List universities
@@ -331,10 +350,11 @@ POST /api/payments/webhook
     amount: 2500,
     currency: 'NGN',
     customer: { email: 'user@example.com' },
-    metadata: { userId: 'user_id', tier: 'premium' }
+    metadata: { userId: 'user_id', tier: 'premium', subscriptionId: '...' }
   }
 }
 ```
+Events received here include both the one‑time initial charge and subsequent recurring debits. The `subscriptionId` metadata ensures recurring payments are linked to the correct record. The server will create a new `Payment` document for each webhook event and extend the subscription `renewalDate`. A `subscription.cancelled` event will also update our subscription status and stop further renewals.
 
 ## 🤖 AI Features (Google Genkit)
 

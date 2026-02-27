@@ -100,11 +100,32 @@ OmiHorizn is a **cross-platform, multi-app ecosystem** built for global mobility
 | Android  | ✅     | Bare React Native + Android Studio |
 | Web      | ✅     | React Native Web + Platform-specific components |
 
-## 💳 Monetization Tiers
+## 💳 Monetization Tiers & Payment Architecture
 
-**Free**: 3 applications, basic templates, community forums, 48h support
-**Premium** ($19.99-29.99/mo): Unlimited apps, AI generators, all 3 engines, 24h support
-**Professional** ($199.99-299.99/mo): + Advisor calls, document review, interview coaching, 4h support
+**Subscription Tiers**:
+- **Free**: 3 applications, basic templates, community forums, 48h support, 1 AI generation/month
+- **Premium** ($19.99-29.99/mo): Unlimited apps, AI generators (unlimited), all 3 engines, 24h support
+- **Professional** ($199.99-299.99/mo): + Advisor calls, document review, interview coaching, 4h support, messaging
+
+**Payment Flow (Client-Driven)**:
+1. Client fetches Flutterwave credentials from server
+2. Client uses Flutterwave SDK (web: `flutterwave-react-v3`, mobile: `flutterwave-react-native`)
+3. SDK processes payment and returns transaction ID
+4. Client verifies transaction with server
+5. Server confirms with Flutterwave API and activates subscription or perform any neccessary operation it want to perform serrver side
+
+**Key Features**:
+- No redirect URLs (mobile & web compatible)
+- Flexible payment processing from any UI context
+- Feature usage tracking per tier
+- Proration on upgrades/downgrades
+- Monthly usage reset for free tier
+
+**Implementation Details**:
+- Server endpoints: `/api/payment/credentials`, `/api/payment/create`, `/api/payment/verify`
+- Subscription endpoints: `/api/subscription/create`, `/api/subscription/me`, `/api/subscription/history`
+- Premium features fetched dynamically from database (not hardcoded)
+- Feature usage middleware enforces tier-based limits
 
 ## 🔐 Session Management
 
@@ -155,6 +176,7 @@ cp server/.env.example server/.env
 - [Server Setup](./server/README.md)  
 - [Client Milestones](./client/MILESTONES.md)
 - [Server Milestones](./server/MILESTONES.md)
+- [Implementation Roadmap](./IMPLEMENTATION_ROADMAP.md)
 
 ## 📜 License
 
